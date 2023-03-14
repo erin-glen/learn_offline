@@ -4,8 +4,8 @@ import os
 import pandas as pd
 from datetime import datetime
 arcpy.env.overwriteOutput = True
-from Utils.lookups import disturbanceLookup, nlcdParentRollupCategories
-from Utils.funcs import tabulateAreaByStratification, ZonalSumByStratification
+from lookups import disturbanceLookup, nlcdParentRollupCategories
+from funcs import tabulateAreaByStratification, ZonalSumByStratification
 
 # pandas options
 pd.options.mode.chained_assignment = None  # suppressed chained assignment warnings
