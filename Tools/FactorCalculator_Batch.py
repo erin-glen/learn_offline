@@ -4,8 +4,8 @@ import os
 import pandas as pd
 from datetime import datetime
 arcpy.env.overwriteOutput = True
-from lookups import disturbanceLookup, nlcdParentRollupCategories
-from funcs import tabulateAreaByStratification, ZonalSumByStratification
+from Utils.lookups import disturbanceLookup, nlcdParentRollupCategories
+from Utils.funcs import tabulateAreaByStratification, ZonalSumByStratification
 from dataprep.Scope3_dataprep import datalist
 
 # pandas options
