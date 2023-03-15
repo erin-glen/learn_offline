@@ -4,8 +4,8 @@ import os
 import pandas as pd
 from datetime import datetime
 arcpy.env.overwriteOutput = True
-from Utils.lookups import disturbanceLookup
-from Utils.funcs import tabulateAreaByStratification, ZonalSumByStratification
+from lookups import disturbanceLookup
+from funcs import tabulateAreaByStratification, ZonalSumByStratification
 
 # pandas options
 pd.options.mode.chained_assignment = None  # suppressed chained assignment warnings
@@ -31,13 +31,8 @@ if __name__ == "__main__":
     aoi_name = input("Name of AOI? ")
     tree_canopy = input("Tree Canopy source? ")
 
-    #NLCD = nlcd_2011_treecanopy_2019_08_31.tif
-    #CBW = cbw_2013_treecanopy_Agg30m_int.tif
-
-    #canopy_source = cbw_2013_treecanopy.tif
-    #canopy_source = cbw_2013_treecanopy_Agg30m_int
-
     #####ALTER INPUT HERE
+
     inputConfig = dict(
         nlcd_1=os.path.join(dataFolder, "LandCover", ("NLCD_" + year1 + "_Land_Cover_l48_20210604.tif")),
         nlcd_2=os.path.join(dataFolder, "LandCover", ("NLCD_" + year2 + "_Land_Cover_l48_20210604.tif")),
