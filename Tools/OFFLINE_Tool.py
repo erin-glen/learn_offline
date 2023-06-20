@@ -7,10 +7,6 @@ arcpy.env.overwriteOutput = True
 from Utils.lookups import disturbanceLookup
 from Utils.funcs import tabulateAreaByStratification, ZonalSumByStratification
 
-"""
-This is also a test
-"""
-
 # pandas options
 pd.options.mode.chained_assignment = None  # suppressed chained assignment warnings
 
