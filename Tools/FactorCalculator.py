@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     # hardcoded AOI for development - Montgomery County, Maryland
     # aoi = os.path.join(wd, "data", "AOI", "MontgomeryMD.shp")
-    aoi =  r"U:\eglen\Projects\LEARN Tools\Data\AlternateData\Salem\CityLimits.shp"
+    aoi =  "U:\eglen\Projects\SanJuan\San Juan\San_Juans_Dissolve\San_Juans_Dissolve.shp"
     inputConfig["aoi"] = aoi  # add the AOI to the inputConfig dictionary
 
     #define the output directory
@@ -283,12 +283,12 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
         #forestAge= forestAge.merge(forest_table, left_on="ForestAgeTypeRegion", right_on="Value")
 
 #code to return only factors from forest table (and convert to CO2)
-    col_list = ['ForestAgeTypeRegion', 'Forests Remaining Forest Removal Factor', 'Fire Emissions Factor',
-                                            'Insect Emissions Factor','Harvest Emissions Factor']
+    col_list = ['ForestAgeTypeRegion', 'Forests Remaining Forest Removal Factor','Nonforest to Forest Removal Factor',
+                'Fire Emissions Factor', 'Insect Emissions Factor','Harvest Emissions Factor']
     forest_table = pd.read_csv(forest_lookup_csv, usecols=col_list)
     forestAge = pd.merge(forestAge, forest_table)
 
-    forestAge['Annual_Removals_C)2'] = ((forestAge['undisturbed_HA'] * forestAge['Forests Remaining Forest Removal Factor']) * (44 / 12))
+    forestAge['Annual_Removals_CO2_undisturbed'] = ((forestAge['undisturbed_HA'] * forestAge['Forests Remaining Forest Removal Factor']) * (44 / 12))
 
     forestAge['Annual_Emissions_Fire_CO2'] = ((forestAge['fire_HA'] * forestAge['Fire Emissions Factor']) * (44/12)
                                               / (int(year2) - int(year1)))

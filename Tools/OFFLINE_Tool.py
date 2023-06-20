@@ -42,8 +42,9 @@ if __name__ == "__main__":
         nlcd_1=os.path.join(dataFolder, "LandCover", ("NLCD_" + year1 + "_Land_Cover_l48_20210604.tif")),
         nlcd_2=os.path.join(dataFolder, "LandCover", ("NLCD_" + year2 + "_Land_Cover_l48_20210604.tif")),
         forestAgeRaster=os.path.join(dataFolder, "ForestType", "forest_raster_07232020.tif"),
-        treecanopy_1=os.path.join(alternateDataFolder, "Cincinnati", "TC_2011_Re.tif"),
-        treecanopy_2=os.path.join(alternateDataFolder, "Cincinnati", "TC_2020_Re.tif"),
+        ####NLCD tree canopy paths > comment out if not in use
+        treecanopy_1=os.path.join(alternateDataFolder, "San_Jose", "TC_Final", "2018_Reclass.tif"),
+        treecanopy_2=os.path.join(alternateDataFolder,  "San_Jose", "TC_Final", "2020_Reclass.tif"),
         carbon_ag_bg_us=os.path.join(dataFolder, "Carbon", "carbon_ag_bg_us.tif"),
         carbon_sd_dd_lt=os.path.join(dataFolder, "Carbon", "carbon_sd_dd_lt.tif"),
         carbon_so=os.path.join(dataFolder, "Carbon", "carbon_so.tif"),
@@ -62,7 +63,7 @@ if __name__ == "__main__":
 
     # hardcoded AOI for development - Montgomery County, Maryland
     # aoi = os.path.join(wd, "data", "AOI", "MontgomeryMD.shp")
-    aoi = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\AOI\CincinnatiBoundary.shp"
+    aoi = "U:\eglen\Projects\LEARN Tools\Data\AlternateData\San_Jose\TC_City_Limits\TC_City_Limits.shp"
     inputConfig["aoi"] = aoi  # add the AOI to the inputConfig dictionary
 
     #define the output directory
@@ -138,7 +139,7 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
     if treecanopy_1 is not None and treecanopy_2 is not None:
 
         # calculate the average tree canopy per pixel
-        with arcpy.EnvManager(mask=aoi):
+        with arcpy.EnvManager(mask=aoi, cellSize=(int(tree_canopy))):
             treeCanopyAvg = (
                                     arcpy.Raster(treecanopy_1) + arcpy.Raster(treecanopy_2)
                             ) / 2  # average
@@ -146,7 +147,7 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
         # tree canopy loss this only happens on the pixels where there is loss
         # logic would be something like Con(tree2 < tree1, tree1-tree2, 0)
         # find the different where there is tree canopy loss
-        with arcpy.EnvManager(mask=aoi):
+        with arcpy.EnvManager(mask=aoi, cellSize=(int(tree_canopy))):
             treeCanopyDiff = arcpy.sa.Con(
                 arcpy.Raster(treecanopy_2) < arcpy.Raster(treecanopy_1),
                 arcpy.Raster(treecanopy_1) - arcpy.Raster(treecanopy_2),
@@ -173,15 +174,20 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
             on=["StratificationValue", "NLCD1_class", "NLCD2_class"],
         )
 
-### for non aggregated 1 m data: 0.0001 (be sure to run at 1 meter cell size)
-### for aggregated data: 0.0001 (this one you can run at 30 meter cell size)
-        # convert units
+        """
+            tree canopy notes...
+            cell size is now set to automatically update for TC based on tree canopy selection (1,30)
+            for non aggregated 1 m data: 0.0001 
+            if running at 1 meter, take * 900 out of formula, so just * 0.0001)
+            for aggregated data: 0.0001 (this one you can run at 30 meter cell size)
+        """
+
         if "1" in tree_canopy:
             treeCover["TreeCanopy_HA"] = (
-                    treeCover["TreeCanopy_HA"] * 0.0001
+                    treeCover["TreeCanopy_HA"] * 0.0001 * 900
             )  # % canopy * pixel size * sq m to ha
             treeCover["TreeCanopyLoss_HA"] = (
-                    treeCover["TreeCanopyLoss_HA"] * 0.0001
+                    treeCover["TreeCanopyLoss_HA"] * 0.0001 * 900
             )  # % canopy * pixel size * sq m to ha
         else:
             # ie 50% is 50/100 * 900 square meters  * 0.0001 HA = 0.045 canopy in HA
