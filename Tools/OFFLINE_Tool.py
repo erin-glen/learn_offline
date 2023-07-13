@@ -6,10 +6,23 @@ from datetime import datetime
 arcpy.env.overwriteOutput = True
 from lookups import disturbanceLookup
 from funcs import tabulateAreaByStratification, ZonalSumByStratification
+import boto3
 
-"""
-This is a test
-"""
+#import s3
+s3_resource = boto3.resource('s3')
+
+#build s3 client
+s3 = boto3.client(
+    's3',
+    aws_access_key_id = str(input('enter your_aws_access_key_id ')),
+    aws_secret_access_key = str(input(' enter your_aws_secret_access_key ')),
+    region_name = str(input(' enter your_aws_region_name '))
+)
+
+bucket_response = s3.list_buckets()
+print(bucket_response)
+
+test_s3 = "s3://gfw2-data/learn/Rasters/AOI"
 
 # pandas options
 pd.options.mode.chained_assignment = None  # suppressed chained assignment warnings
@@ -67,7 +80,7 @@ if __name__ == "__main__":
 
     # hardcoded AOI for development - Montgomery County, Maryland
     # aoi = os.path.join(wd, "data", "AOI", "MontgomeryMD.shp")
-    aoi = "U:\eglen\Projects\LEARN Tools\Data\AlternateData\San_Jose\TC_City_Limits\TC_City_Limits.shp"
+    aoi = test_s3 #"U:\eglen\Projects\LEARN Tools\Data\AlternateData\San_Jose\TC_City_Limits\TC_City_Limits.shp"
     inputConfig["aoi"] = aoi  # add the AOI to the inputConfig dictionary
 
     #define the output directory
