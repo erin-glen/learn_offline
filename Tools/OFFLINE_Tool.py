@@ -35,11 +35,10 @@ if __name__ == "__main__":
     aoi_name = input("Name of AOI? ")
     tree_canopy = input("Tree Canopy source? ")
 
-    #NLCD = nlcd_2011_treecanopy_2019_08_31.tif
-    #CBW = cbw_2013_treecanopy_Agg30m_int.tif
-
-    #canopy_source = cbw_2013_treecanopy.tif
-    #canopy_source = cbw_2013_treecanopy_Agg30m_int
+    if "NLCD" in tree_canopy:
+        treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\NLCD"
+    else:
+        treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy"
 
     #####ALTER INPUT HERE
     inputConfig = dict(
@@ -47,8 +46,11 @@ if __name__ == "__main__":
         nlcd_2=os.path.join(dataFolder, "LandCover", ("NLCD_" + year2 + "_Land_Cover_l48_20210604.tif")),
         forestAgeRaster=os.path.join(dataFolder, "ForestType", "forest_raster_07232020.tif"),
         ####NLCD tree canopy paths > comment out if not in use
-        treecanopy_1=os.path.join(alternateDataFolder, "San_Jose", "TC_Final", "2018_Reclass.tif"),
-        treecanopy_2=os.path.join(alternateDataFolder,  "San_Jose", "TC_Final", "2020_Reclass.tif"),
+        treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4.tif"),
+        treecanopy_2=os.path.join(treecanopy_path,  "nlcd_tcc_conus_" + year2 + "_v2021-4.tif"),
+        ####HighRes tree canopy paths > comment out if not in use
+        #treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4"),
+        #treecanopy_2=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year2 + "_v2021-4"),
         carbon_ag_bg_us=os.path.join(dataFolder, "Carbon", "carbon_ag_bg_us.tif"),
         carbon_sd_dd_lt=os.path.join(dataFolder, "Carbon", "carbon_sd_dd_lt.tif"),
         carbon_so=os.path.join(dataFolder, "Carbon", "carbon_so.tif"),
@@ -143,7 +145,7 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
     if treecanopy_1 is not None and treecanopy_2 is not None:
 
         # calculate the average tree canopy per pixel
-        with arcpy.EnvManager(mask=aoi, cellSize=(int(tree_canopy))):
+        with arcpy.EnvManager(mask=aoi, cellSize=(int(cellsize))):
             treeCanopyAvg = (
                                     arcpy.Raster(treecanopy_1) + arcpy.Raster(treecanopy_2)
                             ) / 2  # average
@@ -151,7 +153,7 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
         # tree canopy loss this only happens on the pixels where there is loss
         # logic would be something like Con(tree2 < tree1, tree1-tree2, 0)
         # find the different where there is tree canopy loss
-        with arcpy.EnvManager(mask=aoi, cellSize=(int(tree_canopy))):
+        with arcpy.EnvManager(mask=aoi, cellSize=(cellsize)):
             treeCanopyDiff = arcpy.sa.Con(
                 arcpy.Raster(treecanopy_2) < arcpy.Raster(treecanopy_1),
                 arcpy.Raster(treecanopy_1) - arcpy.Raster(treecanopy_2),
@@ -186,20 +188,20 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
             for aggregated data: 0.0001 (this one you can run at 30 meter cell size)
         """
 
-        if "1" in tree_canopy:
-            treeCover["TreeCanopy_HA"] = (
-                    treeCover["TreeCanopy_HA"] * 0.0001 * 900
-            )  # % canopy * pixel size * sq m to ha
-            treeCover["TreeCanopyLoss_HA"] = (
-                    treeCover["TreeCanopyLoss_HA"] * 0.0001 * 900
-            )  # % canopy * pixel size * sq m to ha
-        else:
+        if "NLCD" in tree_canopy:
             # ie 50% is 50/100 * 900 square meters  * 0.0001 HA = 0.045 canopy in HA
             treeCover["TreeCanopy_HA"] = (
                     treeCover["TreeCanopy_HA"] / 100 * 900 * 0.0001
             )  # % canopy * pixel size * sq m to ha
             treeCover["TreeCanopyLoss_HA"] = (
                     treeCover["TreeCanopyLoss_HA"] / 100 * 900 * 0.0001
+            )  # % canopy * pixel size * sq m to ha
+        else:
+            treeCover["TreeCanopy_HA"] = (
+                    treeCover["TreeCanopy_HA"] * 0.0001 * 900
+            )  # % canopy * pixel size * sq m to ha
+            treeCover["TreeCanopyLoss_HA"] = (
+                    treeCover["TreeCanopyLoss_HA"] * 0.0001 * 900
             )  # % canopy * pixel size * sq m to ha
 
         # drop columns to avoid duplicates names when merging"StratificationValue", "NLCD1_class", "NLCD2_class"
