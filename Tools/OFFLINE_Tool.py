@@ -35,6 +35,12 @@ if __name__ == "__main__":
     aoi_name = input("Name of AOI? ")
     tree_canopy = input("Tree Canopy source? ")
 
+    # hardcoded AOI for development - Montgomery County, Maryland
+    # aoi = os.path.join(wd, "data", "AOI", "MontgomeryMD.shp")
+    aoi_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\AOI"
+    aoi = os.path.join(aoi_path,(aoi_name + ".shp"))
+
+
     if "NLCD" in tree_canopy:
         treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\NLCD"
     else:
@@ -66,11 +72,7 @@ if __name__ == "__main__":
     )
 
     startTime = datetime.now()
-
-    # hardcoded AOI for development - Montgomery County, Maryland
-    # aoi = os.path.join(wd, "data", "AOI", "MontgomeryMD.shp")
-    aoi = "U:\eglen\Projects\LEARN Tools\Data\AlternateData\San_Jose\TC_City_Limits\TC_City_Limits.shp"
-    inputConfig["aoi"] = aoi  # add the AOI to the inputConfig dictionary
+    inputConfig["aoi"] = aoi # add the AOI to the inputConfig dictionary
 
     #define the output directory
     parentOutputDirectory = "U:/eglen/Projects/LEARN Tools/Data/Outputs/"
