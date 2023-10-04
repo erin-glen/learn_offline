@@ -49,6 +49,7 @@ if __name__ == "__main__":
         ####NLCD tree canopy paths > comment out if not in use
         treecanopy_1=os.path.join(alternateDataFolder, "San_Jose", "TC_Final", "2018_Reclass.tif"),
         treecanopy_2=os.path.join(alternateDataFolder,  "San_Jose", "TC_Final", "2020_Reclass.tif"),
+        plantableAreas=os.path.join(alternateDataFolder,  "San_Jose", "TC_Final", "2020_Reclass.tif"),
         carbon_ag_bg_us=os.path.join(dataFolder, "Carbon", "carbon_ag_bg_us.tif"),
         carbon_sd_dd_lt=os.path.join(dataFolder, "Carbon", "carbon_sd_dd_lt.tif"),
         carbon_so=os.path.join(dataFolder, "Carbon", "carbon_so.tif"),
@@ -61,6 +62,7 @@ if __name__ == "__main__":
             #os.path.join(dataFolder, "Disturbances", "disturbance_1316.tif"),
             os.path.join(dataFolder, "Disturbances", "disturbance_1619.tif")
         ]
+
     )
 
     startTime = datetime.now()
@@ -104,7 +106,7 @@ def landuseStratificationRaster(nlcdRaster1, nlcdRaster2, aoi):
     return stratRast
 
 
-def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbon_ag_bg_us, carbon_sd_dd_lt,
+def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plantableAreas, carbon_ag_bg_us, carbon_sd_dd_lt,
          carbon_so, disturbanceRasters):
     """
     Landuse change stratification summaries for forest age, treecanopy, carbon & disturbance
@@ -209,6 +211,34 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
         arcpy.AddMessage("Skipping Tree Canopy - no data.")
         treeCover = pd.DataFrame(columns=["StratificationValue", "NLCD1_class", "NLCD2_class",
                                           "TreeCanopy_HA", "TreeCanopyLoss_HA"])
+
+    # Tree Canopy - sum up all the pixels values for the average and difference (year 1 - year 2)
+    arcpy.AddMessage("STEP 2.5: Summing plantable areas by stratification class")
+
+    if plantableAreas is not None:
+
+        # calculate the average tree canopy per pixel
+        with arcpy.EnvManager(mask=aoi, cellSize=(int(tree_canopy))):
+            plantableRaster = (arcpy.Raster(plantableAreas))
+
+        plantable_sum = ZonalSumByStratification(stratRast, plantableRaster, "Plantable_HA", cellSize=30)
+
+        # merge the two dataframes
+        treeCover = treeCover.merge(
+            plantable_sum,
+            how="outer",
+            on=["StratificationValue", "NLCD1_class", "NLCD2_class"],
+        )
+
+        treeCover["Plantable_HA"] = (
+                treeCover["Plantable_HA"] * 0.0001 * 900)
+
+        # drop columns to avoid duplicates names when merging"StratificationValue", "NLCD1_class", "NLCD2_class"
+        treeCover.drop(["Hectares", "CellCount"], axis=1, inplace=True)
+
+    else:
+        arcpy.AddMessage("Skipping Plantable Areas - no data.")
+
 
     # Disturbance - tabulate the area
     arcpy.AddMessage("STEP 3: Cross tabulating disturbance area by stratification class")
