@@ -47,9 +47,9 @@ if __name__ == "__main__":
         nlcd_2=os.path.join(dataFolder, "LandCover", ("NLCD_" + year2 + "_Land_Cover_l48_20210604.tif")),
         forestAgeRaster=os.path.join(dataFolder, "ForestType", "forest_raster_07232020.tif"),
         ####NLCD tree canopy paths > comment out if not in use
-        treecanopy_1=os.path.join(alternateDataFolder, "San_Jose", "TC_Final", "2018_Reclass.tif"),
-        treecanopy_2=os.path.join(alternateDataFolder,  "San_Jose", "TC_Final", "2020_Reclass.tif"),
-        plantableAreas=os.path.join(alternateDataFolder,  "San_Jose", "TC_Final", "2020_Reclass.tif"),
+        treecanopy_1=os.path.join(dataFolder, "TreeCanopy", "CBW", "cbw_2013_treecanopy.tif"),
+        treecanopy_2=os.path.join(dataFolder, "TreeCanopy", "CBW", "cbw_2018_treecanopy.tif"),
+        plantableAreas=os.path.join(dataFolder, "Plantable", "Howard", "PA_Howard.tif"),
         carbon_ag_bg_us=os.path.join(dataFolder, "Carbon", "carbon_ag_bg_us.tif"),
         carbon_sd_dd_lt=os.path.join(dataFolder, "Carbon", "carbon_sd_dd_lt.tif"),
         carbon_so=os.path.join(dataFolder, "Carbon", "carbon_so.tif"),
@@ -59,8 +59,9 @@ if __name__ == "__main__":
             #os.path.join(dataFolder, "Disturbances", "disturbance_0608.tif"),
             #os.path.join(dataFolder, "Disturbances", "disturbance_0811.tif"),
             #os.path.join(dataFolder, "Disturbances", "disturbance_1113.tif"),
-            #os.path.join(dataFolder, "Disturbances", "disturbance_1316.tif"),
+            os.path.join(dataFolder, "Disturbances", "disturbance_1316.tif"),
             os.path.join(dataFolder, "Disturbances", "disturbance_1619.tif")
+            #os.path.join(dataFolder, "Disturbances", "disturbance_1921.tif")
         ]
 
     )
@@ -69,7 +70,7 @@ if __name__ == "__main__":
 
     # hardcoded AOI for development - Montgomery County, Maryland
     # aoi = os.path.join(wd, "data", "AOI", "MontgomeryMD.shp")
-    aoi = "U:\eglen\Projects\LEARN Tools\Data\AlternateData\San_Jose\TC_City_Limits\TC_City_Limits.shp"
+    aoi = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\AOI\Howard.shp"
     inputConfig["aoi"] = aoi  # add the AOI to the inputConfig dictionary
 
     #define the output directory

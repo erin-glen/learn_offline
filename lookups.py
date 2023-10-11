@@ -54,3 +54,14 @@ disturbanceLookup = {
 	5: 'insect_damage_HA',
 	10: 'fire_HA'
 }
+
+= {
+	Cropland:
+		biomass: 1,
+		dead organic matter: 1,
+		soil organic: 0.23,
+	Grassland:
+	Wetland:
+	Settlement:
+	OtherLand:
+}
