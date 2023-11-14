@@ -54,3 +54,35 @@ disturbanceLookup = {
 	5: 'insect_damage_HA',
 	10: 'fire_HA'
 }
+
+carbonStockLoss = {
+    "Cropland": {
+        "biomass": 1,
+        "dead organic matter": 1,
+        "soil organic": 0.23,
+    },
+    "Grassland": {
+        "biomass": 0.5,
+        "dead organic matter": 1,
+        "soil organic": 0,
+    },
+    "Wetland": {
+        "biomass": 1,
+        "dead organic matter": 1,
+        "soil organic": 0,
+    },
+    "Settlement": {
+        "biomass": 1,
+        "dead organic matter": 1,
+        "soil organic": 0.3,
+    },
+    "OtherLand": {
+        "biomass": 1,
+        "dead organic matter": 1,
+        "soil organic": 1,
+    }
+}
+
+carbonStockGain = {
+
+}
