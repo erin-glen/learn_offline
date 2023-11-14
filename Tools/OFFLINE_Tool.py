@@ -278,7 +278,42 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
             outputName="ForestAgeTypeRegion",
             colNameArea=d)
         forestAge = forestAge.merge(tempDisturbanceDF, how='outer', on=["StratificationValue", "NLCD1_class",
-                                                                        "NLCD2_class", "ForestAgeTypeRegion"])
+
+        # code to return all attribites from forest table
+        forest_lookup_csv = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\ForestType\forest_raster_09172020.csv"
+        # import forest lookup csv
+        # forest_table = pd.read_csv(forest_lookup_csv)
+        # forestAge= forestAge.merge(forest_table, left_on="ForestAgeTypeRegion", right_on="Value")
+
+        # code to return only factors from forest table (and convert to CO2)
+        col_list = ['ForestAgeTypeRegion', 'Nonforest to Forest Removal Factor',
+                    'Forests Remaining Forest Removal Factor', 'Fire Emissions Factor',
+                    'Insect Emissions Factor', 'Harvest Emissions Factor']
+        forest_table = pd.read_csv(forest_lookup_csv, usecols=col_list)
+        forestAge = pd.merge(forestAge, forest_table)
+
+        forestAge['Annual_Removals_Undisturbed_C02'] = (
+                (forestAge['undisturbed_HA'] * forestAge['Forests Remaining Forest Removal Factor']) * (44 / 12))
+        # todo add a field for nonforest to forest hectares
+        forestAge['Annual_Removals_N_to_F_C02'] = (
+                (forestAge['undisturbed_HA'] * forestAge['Nonforest to Forest Removal Factor']) * (44 / 12))
+        forestAge['Annual_Emissions_Fire_CO2'] = (
+                (forestAge['fire_HA'] * forestAge['Fire Emissions Factor']) * (44 / 12)
+                / (int(year2) - int(year1)))
+        forestAge['Annual_Emissions_Harvest_CO2'] = (
+                (forestAge['harvest_HA'] * forestAge['Harvest Emissions Factor']) * (44 / 12)
+                / (int(year2) - int(year1)))
+        forestAge['Annual_Emissions_Insect_CO2'] = (
+                (forestAge['insect_damage_HA'] * forestAge['Insect Emissions Factor']) * (44 / 12)
+                / (int(year2) - int(year1)))
+
+        # todo add function to calculate emissions using dictionary
+        # todo add calculations to dataframe
+
+        # return groupByLanduseChangeDF.sort_values(by=["Hectares"], ascending=False), forestAge.sort_values(
+        #     by=["Hectares"],
+        #     ascending=False)
+
 
     return groupByLanduseChangeDF.sort_values(by=["Hectares"], ascending=False), forestAge.sort_values(by=["Hectares"],
                                                                                                        ascending=False)
