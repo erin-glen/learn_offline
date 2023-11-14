@@ -280,6 +280,14 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
         forestAge = forestAge.merge(tempDisturbanceDF, how='outer', on=["StratificationValue", "NLCD1_class",
                                                                         "NLCD2_class", "ForestAgeTypeRegion"])
 
+        #fill NA with zero to avoid calculation errors
+        forestAge['fire_HA'] = forestAge['fire_HA'].fillna(0)
+        forestAge['insect_damage_HA'] = forestAge['insect_damage_HA'].fillna(0)
+        forestAge['harvest_HA'] = forestAge['harvest_HA'].fillna(0)
+
+        forestAge['undisturbed_HA'] = forestAge['Hectares'] - forestAge['fire_HA'] - forestAge['harvest_HA'] - \
+                                      forestAge['insect_damage_HA']
+
         # code to return all attribites from forest table
         forest_lookup_csv = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\ForestType\forest_raster_09172020.csv"
         forest_table = pd.read_csv(forest_lookup_csv)
