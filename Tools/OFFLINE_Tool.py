@@ -49,7 +49,7 @@ if __name__ == "__main__":
         ####NLCD tree canopy paths > comment out if not in use
         treecanopy_1=os.path.join(dataFolder, "TreeCanopy", "CBW", "cbw_2013_treecanopy.tif"),
         treecanopy_2=os.path.join(dataFolder, "TreeCanopy", "CBW", "cbw_2018_treecanopy.tif"),
-        plantableAreas=os.path.join(dataFolder, "Plantable", "Howard", "PA_Howard.tif"),
+        plantableAreas=os.path.join(dataFolder, "Plantable", "Montgomery", "PA_Montgomery.tif"),
         carbon_ag_bg_us=os.path.join(dataFolder, "Carbon", "carbon_ag_bg_us.tif"),
         carbon_sd_dd_lt=os.path.join(dataFolder, "Carbon", "carbon_sd_dd_lt.tif"),
         carbon_so=os.path.join(dataFolder, "Carbon", "carbon_so.tif"),
@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     # hardcoded AOI for development - Montgomery County, Maryland
     # aoi = os.path.join(wd, "data", "AOI", "MontgomeryMD.shp")
-    aoi = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\AOI\Howard.shp"
+    aoi = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\AOI\Montgomery.shp"
     inputConfig["aoi"] = aoi  # add the AOI to the inputConfig dictionary
 
     #define the output directory
