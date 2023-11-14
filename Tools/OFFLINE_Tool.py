@@ -3,8 +3,9 @@ import arcpy
 import os
 import pandas as pd
 from datetime import datetime
+
 arcpy.env.overwriteOutput = True
-from lookups import disturbanceLookup
+from lookups import disturbanceLookup, carbonStockLoss
 from funcs import tabulateAreaByStratification, ZonalSumByStratification
 
 """
@@ -21,7 +22,6 @@ else:
     # raise a custom exception
     raise Exception
 
-
 if __name__ == "__main__":
     wd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     print(wd)
@@ -35,11 +35,11 @@ if __name__ == "__main__":
     aoi_name = input("Name of AOI? ")
     tree_canopy = input("Tree Canopy source? ")
 
-    #NLCD = nlcd_2011_treecanopy_2019_08_31.tif
-    #CBW = cbw_2013_treecanopy_Agg30m_int.tif
+    # NLCD = nlcd_2011_treecanopy_2019_08_31.tif
+    # CBW = cbw_2013_treecanopy_Agg30m_int.tif
 
-    #canopy_source = cbw_2013_treecanopy.tif
-    #canopy_source = cbw_2013_treecanopy_Agg30m_int
+    # canopy_source = cbw_2013_treecanopy.tif
+    # canopy_source = cbw_2013_treecanopy_Agg30m_int
 
     #####ALTER INPUT HERE
     inputConfig = dict(
@@ -54,14 +54,14 @@ if __name__ == "__main__":
         carbon_sd_dd_lt=os.path.join(dataFolder, "Carbon", "carbon_sd_dd_lt.tif"),
         carbon_so=os.path.join(dataFolder, "Carbon", "carbon_so.tif"),
         disturbanceRasters=[
-            #os.path.join(dataFolder, "Disturbances", "disturbance_0104.tif"),
-            #os.path.join(dataFolder, "Disturbances", "disturbance_0406.tif"),
-            #os.path.join(dataFolder, "Disturbances", "disturbance_0608.tif"),
-            #os.path.join(dataFolder, "Disturbances", "disturbance_0811.tif"),
-            #os.path.join(dataFolder, "Disturbances", "disturbance_1113.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_0104.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_0406.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_0608.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_0811.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_1113.tif"),
             os.path.join(dataFolder, "Disturbances", "disturbance_1316.tif"),
             os.path.join(dataFolder, "Disturbances", "disturbance_1619.tif")
-            #os.path.join(dataFolder, "Disturbances", "disturbance_1921.tif")
+            # os.path.join(dataFolder, "Disturbances", "disturbance_1921.tif")
         ]
 
     )
@@ -73,21 +73,22 @@ if __name__ == "__main__":
     aoi = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\AOI\Montgomery.shp"
     inputConfig["aoi"] = aoi  # add the AOI to the inputConfig dictionary
 
-    #define the output directory
+    # define the output directory
     parentOutputDirectory = "U:/eglen/Projects/LEARN Tools/Data/Outputs/"
     dateTime = datetime.now()
     dateFormat = dateTime.strftime("%m_%d")
-    #outputFolderName = input("Name of output directory: ")
+    # outputFolderName = input("Name of output directory: ")
     outputFolderName = dateFormat + "_" + year1 + "_" + year2 + "_" + aoi_name
     outputPath = os.path.join(parentOutputDirectory, outputFolderName)
     outputDirectory = os.mkdir(outputPath)
-    text_doc = os.path.join(outputPath,"doc")
-    with open(text_doc,'w') as doc:
+    text_doc = os.path.join(outputPath, "doc")
+    with open(text_doc, 'w') as doc:
         doc.write("Year 1: " + year1 + "\n")
         doc.write("Year 2: " + year2 + "\n")
         doc.write("Cellsize: " + cellsize + "\n")
         doc.write("Date: " + str(datetime.now()) + "\n" + "\n")
         doc.write(str(inputConfig.values()))
+
 
 def landuseStratificationRaster(nlcdRaster1, nlcdRaster2, aoi):
     """
@@ -107,7 +108,8 @@ def landuseStratificationRaster(nlcdRaster1, nlcdRaster2, aoi):
     return stratRast
 
 
-def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plantableAreas, carbon_ag_bg_us, carbon_sd_dd_lt,
+def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plantableAreas, carbon_ag_bg_us,
+         carbon_sd_dd_lt,
          carbon_so, disturbanceRasters):
     """
     Landuse change stratification summaries for forest age, treecanopy, carbon & disturbance
@@ -240,7 +242,6 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plant
     else:
         arcpy.AddMessage("Skipping Plantable Areas - no data.")
 
-
     # Disturbance - tabulate the area
     arcpy.AddMessage("STEP 3: Cross tabulating disturbance area by stratification class")
     arcpy.AddMessage("Number of disturbance rasters: {}".format(len(disturbanceRasters)))
@@ -306,9 +307,43 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plant
             colNameArea=d)
         forestAge = forestAge.merge(tempDisturbanceDF, how='outer', on=["StratificationValue", "NLCD1_class",
                                                                         "NLCD2_class", "ForestAgeTypeRegion"])
+    # code to return all attribites from forest table
+    forest_lookup_csv = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\ForestType\forest_raster_09172020.csv"
+    # import forest lookup csv
+    # forest_table = pd.read_csv(forest_lookup_csv)
+    # forestAge= forestAge.merge(forest_table, left_on="ForestAgeTypeRegion", right_on="Value")
+
+    # code to return only factors from forest table (and convert to CO2)
+    col_list = ['ForestAgeTypeRegion', 'Nonforest to Forest Removal Factor','Forests Remaining Forest Removal Factor', 'Fire Emissions Factor',
+                'Insect Emissions Factor', 'Harvest Emissions Factor']
+    forest_table = pd.read_csv(forest_lookup_csv, usecols=col_list)
+    forestAge = pd.merge(forestAge, forest_table)
+
+    forestAge['Annual_Removals_Undisturbed_C02'] = (
+            (forestAge['undisturbed_HA'] * forestAge['Forests Remaining Forest Removal Factor']) * (44 / 12))
+    #todo add a field for nonforest to forest hectares
+    forestAge['Annual_Removals_N_to_F_C02'] = (
+            (forestAge['undisturbed_HA'] * forestAge['Nonforest to Forest Removal Factor']) * (44 / 12))
+    forestAge['Annual_Emissions_Fire_CO2'] = (
+            (forestAge['fire_HA'] * forestAge['Fire Emissions Factor']) * (44 / 12)
+            / (int(year2) - int(year1)))
+    forestAge['Annual_Emissions_Harvest_CO2'] = (
+            (forestAge['harvest_HA'] * forestAge['Harvest Emissions Factor']) * (44 / 12)
+            / (int(year2) - int(year1)))
+    forestAge['Annual_Emissions_Insect_CO2'] = (
+            (forestAge['insect_damage_HA'] * forestAge['Insect Emissions Factor']) * (44 / 12)
+            / (int(year2) - int(year1)))
+
+    #todo add function to calculate emissions using dictionary
+    #todo add calculations to dataframe
+
+    # return groupByLanduseChangeDF.sort_values(by=["Hectares"], ascending=False), forestAge.sort_values(
+    #     by=["Hectares"],
+    #     ascending=False)
 
     return groupByLanduseChangeDF.sort_values(by=["Hectares"], ascending=False), forestAge.sort_values(by=["Hectares"],
                                                                                                        ascending=False)
+
 
 # stratification areas/sums for each of the value rasters
 landuse_result, forestType_result = main(**inputConfig)
