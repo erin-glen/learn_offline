@@ -142,3 +142,22 @@ def df2jsonstr(df_dict):
     :return: json like string
     """
     return str({k: v.to_json(orient="records") for (k,v) in df_dict.iteritems()})
+
+# Define a function to calculate the "Category" based on the conditions
+def calculate_category(row):
+    if row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
+        return 'Forest Remaining Forest'
+    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Settlement':
+        return 'Forest to Settlement'
+    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Other Land':
+        return 'Forest to Other Land'
+    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Cropland':
+        return 'Forest to Cropland'
+    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Grassland':
+        return 'Forest to Grassland'
+    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Wetland':
+        return 'Forest to Wetland'
+    elif row['NLCD_1_ParentClass'] != 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
+        return 'Nonforest to Forest'
+    else:
+        return 'Nonforest to Nonforest'

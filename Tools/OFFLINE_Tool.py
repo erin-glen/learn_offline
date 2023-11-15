@@ -4,8 +4,9 @@ import os
 import pandas as pd
 from datetime import datetime
 arcpy.env.overwriteOutput = True
-from lookups import disturbanceLookup
-from funcs import tabulateAreaByStratification, ZonalSumByStratification
+import pprint
+from lookups import disturbanceLookup, nlcdParentRollupCategories
+from funcs import tabulateAreaByStratification, ZonalSumByStratification, calculate_category
 
 """
 This is a test
@@ -81,7 +82,11 @@ if __name__ == "__main__":
     #outputFolderName = input("Name of output directory: ")
     outputFolderName = dateFormat + "_" + year1 + "_" + year2 + "_" + aoi_name
     outputPath = os.path.join(parentOutputDirectory, outputFolderName)
-    outputDirectory = os.mkdir(outputPath)
+
+    if not os.path.exists(outputPath):
+        os.makedirs(outputPath)
+
+
     text_doc = os.path.join(outputPath,"doc")
     with open(text_doc,'w') as doc:
         doc.write("Year 1: " + year1 + "\n")
@@ -214,7 +219,7 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
         treeCover = pd.DataFrame(columns=["StratificationValue", "NLCD1_class", "NLCD2_class",
                                           "TreeCanopy_HA", "TreeCanopyLoss_HA"])
 
-    # Disturbance - tabulate the area
+    ###### --------------- Disturbance - tabulate the area -----------------
     arcpy.AddMessage("STEP 3: Cross tabulating disturbance area by stratification class")
     arcpy.AddMessage("Number of disturbance rasters: {}".format(len(disturbanceRasters)))
     if len(disturbanceRasters) == 1:
@@ -255,10 +260,23 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
     carbon["carbon_so"] = carbon["carbon_so"] / 10000 * 900
 
     # merge disturbance area, tree cover totals, carbon totals by stratification class
-    groupByLanduseChangeDF = carbon.merge(treeCover, how='outer',
-                                          on=["StratificationValue", "NLCD1_class", "NLCD2_class"]).merge(
-        disturbance_wide, how='outer', on=["StratificationValue", "NLCD1_class", "NLCD2_class"]
-    )
+    groupByLanduseChangeDF = def calculate_category(row):
+    if row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
+        return 'Forest Remaining Forest'
+    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Settlement':
+        return 'Forest to Settlement'
+    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Other Land':
+        return 'Forest to Other Land'
+    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Cropland':
+        return 'Forest to Cropland'
+    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Grassland':
+        return 'Forest to Grassland'
+    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Wetland':
+        return 'Forest to Wetland'
+    elif row['NLCD_1_ParentClass'] != 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
+        return 'Nonforest to Forest'
+    else:
+        return 'Nonforest to Nonforest'
 
     # Forest Age Type - tabulate the area
     arcpy.AddMessage("STEP 5: Tabulating total area for the forest age types by stratification class")
@@ -266,6 +284,10 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
 
     # merge forestAge area total + disturbance areas by forestAge
     arcpy.AddMessage("STEP 6: Tabulating disturbance area for the forest age types by stratification class for fires")
+
+    #map the NLCD class to the parent class in forest age dataframe
+    forestAge["NLCD_1_ParentClass"] = forestAge["NLCD1_class"].map(nlcdParentRollupCategories)
+    forestAge["NLCD_2_ParentClass"] = forestAge["NLCD2_class"].map(nlcdParentRollupCategories)
 
     # calculate disturbances (insects, fires, harvest) by forestAgeRegionType and landuse change type
     # pull the disturbance codes from the dictionary and loop through them
@@ -277,58 +299,73 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
             forestAgeRaster,
             outputName="ForestAgeTypeRegion",
             colNameArea=d)
+
         forestAge = forestAge.merge(tempDisturbanceDF, how='outer', on=["StratificationValue", "NLCD1_class",
                                                                         "NLCD2_class", "ForestAgeTypeRegion"])
+    #fill NA with zero to avoid calculation errors
+    forestAge['fire_HA'] = forestAge['fire_HA'].fillna(0)
+    forestAge['insect_damage_HA'] = forestAge['insect_damage_HA'].fillna(0)
+    forestAge['harvest_HA'] = forestAge['harvest_HA'].fillna(0)
+    #calculate undisturbed forest arew
+    forestAge['undisturbed_HA'] = forestAge['Hectares'] - forestAge['fire_HA'] - forestAge['harvest_HA'] - forestAge['insect_damage_HA']
 
-        #fill NA with zero to avoid calculation errors
-        forestAge['fire_HA'] = forestAge['fire_HA'].fillna(0)
-        forestAge['insect_damage_HA'] = forestAge['insect_damage_HA'].fillna(0)
-        forestAge['harvest_HA'] = forestAge['harvest_HA'].fillna(0)
+    # Apply the function to create the "Category" column
+    forestAge['Category'] = forestAge.apply(calculate_category, axis=1)
 
-        forestAge['undisturbed_HA'] = forestAge['Hectares'] - forestAge['fire_HA'] - forestAge['harvest_HA'] - \
-                                      forestAge['insect_damage_HA']
+    #todo add this to input config
+    #enter the path to the forest lookup table
+    forest_lookup_csv = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\ForestType\forest_raster_09172020.csv"
 
-        # code to return all attribites from forest table
-        forest_lookup_csv = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\ForestType\forest_raster_09172020.csv"
-        forest_table = pd.read_csv(forest_lookup_csv)
-        #forestAge = forestAge.merge(forest_table, left_on="ForestAgeTypeRegion", right_on="Value")
+    #create list of columns to read
+    col_list = ['ForestAgeTypeRegion', 'Nonforest to Forest Removal Factor',
+                'Forests Remaining Forest Removal Factor', 'Fire Emissions Factor',
+                'Insect Emissions Factor', 'Harvest Emissions Factor']
+    #read the forest able using column list
+    forest_table = pd.read_csv(forest_lookup_csv, usecols=col_list)
+    #merge forestAge and forest lookup table
+    forestAge = pd.merge(forestAge, forest_table)
 
-        # code to return only factors from forest table (and convert to CO2)
-        col_list = ['ForestAgeTypeRegion', 'Nonforest to Forest Removal Factor',
-                    'Forests Remaining Forest Removal Factor', 'Fire Emissions Factor',
-                    'Insect Emissions Factor', 'Harvest Emissions Factor']
-        forest_table = pd.read_csv(forest_lookup_csv, usecols=col_list)
-        print(forest_table)
-        print(forestAge)
-        #forestAge = pd.merge(forestAge, forest_table)
+    forestAge['Annual_Removals_Undisturbed_C02'] = (
+            (forestAge['undisturbed_HA'] * forestAge['Forests Remaining Forest Removal Factor']) * (44 / 12))
+    forestAge['Annual_Removals_N_to_F_C02'] = (
+             (forestAge['Hectares'] * forestAge['Nonforest to Forest Removal Factor']) * (44 / 12))
+    forestAge['Annual_Emissions_Fire_CO2'] = (
+            (forestAge['fire_HA'] * forestAge['Fire Emissions Factor']) * (44 / 12)
+            / (int(year2) - int(year1)))
+    forestAge['Annual_Emissions_Harvest_CO2'] = (
+            (forestAge['harvest_HA'] * forestAge['Harvest Emissions Factor']) * (44 / 12)
+            / (int(year2) - int(year1)))
+    forestAge['Annual_Emissions_Insect_CO2'] = (
+            (forestAge['insect_damage_HA'] * forestAge['Insect Emissions Factor']) * (44 / 12)
+            / (int(year2) - int(year1)))
 
-        forestAge['Annual_Removals_Undisturbed_C02'] = (
-                (forestAge['undisturbed_HA'] * forestAge['Forests Remaining Forest Removal Factor']) * (44 / 12))
-        # todo add a field for nonforest to forest hectares
-        forestAge['Annual_Removals_N_to_F_C02'] = (
-                (forestAge['undisturbed_HA'] * forestAge['Nonforest to Forest Removal Factor']) * (44 / 12))
-        forestAge['Annual_Emissions_Fire_CO2'] = (
-                (forestAge['fire_HA'] * forestAge['Fire Emissions Factor']) * (44 / 12)
-                / (int(year2) - int(year1)))
-        forestAge['Annual_Emissions_Harvest_CO2'] = (
-                (forestAge['harvest_HA'] * forestAge['Harvest Emissions Factor']) * (44 / 12)
-                / (int(year2) - int(year1)))
-        forestAge['Annual_Emissions_Insect_CO2'] = (
-                (forestAge['insect_damage_HA'] * forestAge['Insect Emissions Factor']) * (44 / 12)
-                / (int(year2) - int(year1)))
-
-        # todo add function to calculate emissions using dictionary
-        # todo add calculations to dataframe
-
-        # return groupByLanduseChangeDF.sort_values(by=["Hectares"], ascending=False), forestAge.sort_values(
-        #     by=["Hectares"],
-        #     ascending=False)
+    def calculate_emissions(row):
+        if row['Category'] == 'Forest to Settelment':
 
 
-    return groupByLanduseChangeDF.sort_values(by=["Hectares"], ascending=False), forestAge.sort_values(by=["Hectares"],
-                                                                                                       ascending=False)
 
-# stratification areas/sums for each of the value rasters
+        elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Settlement':
+            return 'Forest to Settlement'
+        elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Other Land':
+            return 'Forest to Other Land'
+        elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Cropland':
+            return 'Forest to Cropland'
+        elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Grassland':
+            return 'Forest to Grassland'
+        elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Wetland':
+            return 'Forest to Wetland'
+        elif row['NLCD_1_ParentClass'] != 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
+            return 'Nonforest to Forest'
+        else:
+            return 'Nonforest to Nonforest'
+    # todo add function to calculate emissions using dictionary
+    # todo add calculations to dataframe
+
+    return groupByLanduseChangeDF.sort_values(by=["Hectares"], ascending=False), forestAge.sort_values(
+        by=["Hectares"],
+        ascending=False)
+
+# # stratification areas/sums for each of the value rasters
 landuse_result, forestType_result = main(**inputConfig)
 
 # build the json like string that contains all the results
