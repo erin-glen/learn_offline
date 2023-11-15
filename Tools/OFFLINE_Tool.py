@@ -55,6 +55,7 @@ if __name__ == "__main__":
         ####NLCD tree canopy paths > comment out if not in use
         treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4.tif"),
         treecanopy_2=os.path.join(treecanopy_path,  "nlcd_tcc_conus_" + year2 + "_v2021-4.tif"),
+        plantableAreas= "None",
         ####HighRes tree canopy paths > comment out if not in use
         #treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4"),
         #treecanopy_2=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year2 + "_v2021-4"),
@@ -114,7 +115,7 @@ def landuseStratificationRaster(nlcdRaster1, nlcdRaster2, aoi):
 
 
 def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbon_ag_bg_us, carbon_sd_dd_lt,
-         carbon_so, disturbanceRasters):
+         carbon_so, disturbanceRasters, plantableAreas=None):
     """
     Landuse change stratification summaries for forest age, treecanopy, carbon & disturbance
     :param aoi: area of interest
@@ -219,6 +220,32 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
         treeCover = pd.DataFrame(columns=["StratificationValue", "NLCD1_class", "NLCD2_class",
                                           "TreeCanopy_HA", "TreeCanopyLoss_HA"])
 
+    # Plantable areas - sum up pixel values for plantable areas in year 2
+    arcpy.AddMessage("STEP 2.5: Summing plantable areas by stratification class")
+
+    if plantableAreas != "None":
+        # calculate the average tree canopy per pixel
+        with arcpy.EnvManager(mask=aoi, cellSize=(int(cellsize))):
+            plantableRaster = (arcpy.Raster(plantableAreas))
+
+        plantable_sum = ZonalSumByStratification(stratRast, plantableRaster, "Plantable_HA", cellSize=30)
+
+        # merge the two dataframes
+        treeCover = treeCover.merge(
+            plantable_sum,
+            how="outer",
+            on=["StratificationValue", "NLCD1_class", "NLCD2_class"],
+        )
+
+        treeCover["Plantable_HA"] = (
+                treeCover["Plantable_HA"] * 0.0001 * 900)
+
+        # drop columns to avoid duplicates names when merging"StratificationValue", "NLCD1_class", "NLCD2_class"
+        treeCover.drop(["Hectares", "CellCount"], axis=1, inplace=True)
+
+    else:
+        arcpy.AddMessage("Skipping Plantable Areas - no data.")
+
     ###### --------------- Disturbance - tabulate the area -----------------
     arcpy.AddMessage("STEP 3: Cross tabulating disturbance area by stratification class")
     arcpy.AddMessage("Number of disturbance rasters: {}".format(len(disturbanceRasters)))
@@ -260,23 +287,10 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
     carbon["carbon_so"] = carbon["carbon_so"] / 10000 * 900
 
     # merge disturbance area, tree cover totals, carbon totals by stratification class
-    groupByLanduseChangeDF = def calculate_category(row):
-    if row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
-        return 'Forest Remaining Forest'
-    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Settlement':
-        return 'Forest to Settlement'
-    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Other Land':
-        return 'Forest to Other Land'
-    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Cropland':
-        return 'Forest to Cropland'
-    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Grassland':
-        return 'Forest to Grassland'
-    elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Wetland':
-        return 'Forest to Wetland'
-    elif row['NLCD_1_ParentClass'] != 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
-        return 'Nonforest to Forest'
-    else:
-        return 'Nonforest to Nonforest'
+    groupByLanduseChangeDF = carbon.merge(treeCover, how='outer',
+                                          on=["StratificationValue", "NLCD1_class", "NLCD2_class"]).merge(
+        disturbance_wide, how='outer', on=["StratificationValue", "NLCD1_class", "NLCD2_class"]
+    )
 
     # Forest Age Type - tabulate the area
     arcpy.AddMessage("STEP 5: Tabulating total area for the forest age types by stratification class")
@@ -339,25 +353,22 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
             (forestAge['insect_damage_HA'] * forestAge['Insect Emissions Factor']) * (44 / 12)
             / (int(year2) - int(year1)))
 
-    def calculate_emissions(row):
-        if row['Category'] == 'Forest to Settelment':
-
-
-
-        elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Settlement':
-            return 'Forest to Settlement'
-        elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Other Land':
-            return 'Forest to Other Land'
-        elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Cropland':
-            return 'Forest to Cropland'
-        elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Grassland':
-            return 'Forest to Grassland'
-        elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Wetland':
-            return 'Forest to Wetland'
-        elif row['NLCD_1_ParentClass'] != 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
-            return 'Nonforest to Forest'
-        else:
-            return 'Nonforest to Nonforest'
+    # def calculate_emissions(row):
+    #     if row['Category'] == 'Forest to Settelment':
+    #     elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Settlement':
+    #         return 'Forest to Settlement'
+    #     elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Other Land':
+    #         return 'Forest to Other Land'
+    #     elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Cropland':
+    #         return 'Forest to Cropland'
+    #     elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Grassland':
+    #         return 'Forest to Grassland'
+    #     elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Wetland':
+    #         return 'Forest to Wetland'
+    #     elif row['NLCD_1_ParentClass'] != 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
+    #         return 'Nonforest to Forest'
+    #     else:
+    #         return 'Nonforest to Nonforest'
     # todo add function to calculate emissions using dictionary
     # todo add calculations to dataframe
 
