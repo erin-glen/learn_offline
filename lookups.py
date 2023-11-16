@@ -76,13 +76,9 @@ carbonStockLoss = {
         "dead organic matter": 1,
         "soil organic": 0.3,
     },
-    "OtherLand": {
+    "Other Land": {
         "biomass": 1,
         "dead organic matter": 1,
         "soil organic": 1,
     }
-}
-
-carbonStockGain = {
-
 }

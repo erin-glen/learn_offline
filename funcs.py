@@ -1,7 +1,7 @@
 # helper functions used in multiple parts of the gp tool
 import arcpy
 import pandas as pd
-from lookups import nlcdParentRollupCategories, nlcdCategories
+from lookups import nlcdParentRollupCategories, nlcdCategories, disturbanceLookup, carbonStockLoss
 import numpy as np
 import os
 
@@ -24,6 +24,24 @@ def feature_class_to_pandas_data_frame(feature_class, field_list):
             null_value=-99999,
         )
     )
+
+
+def landuseStratificationRaster(nlcdRaster1, nlcdRaster2, aoi):
+    """
+    Create the two year NLCD stratification raster by offsetting one year by 100 and then adding the second year.
+    This allow all landuse change to be tracked between two years. Rasters must follow the NLCD classification schema.
+    Example: a pixel has a value of 43 (mixed forest) in the first raster and a value 81 (Pasture/hay) in the second
+    representing the transition from mixed forest to pasture, the stratification raster will have a pixel value of 4381.
+    :param nlcdRaster1: the path to the NLCD raster to use for the initial state
+    :param nlcdRaster2: the path the second NLCD raster to use as the after stat
+    :param aoi: the area of interest
+    :return: the landuse change raster where the pixel values combines both year classifcation values
+    """
+    # https://gis.stackexchange.com/questions/94469/is-clip-data-management-or-extract-by-mask-spatial-analyst-more-efficient
+    arcpy.Clip_management(nlcdRaster1, "#", "in_memory/nlcd_before", aoi, "", "ClippingGeometry")
+    arcpy.Clip_management(nlcdRaster2, "#", "in_memory/nlcd_after", aoi, "", "ClippingGeometry")
+    stratRast = arcpy.Raster("in_memory/nlcd_before") * 100 + arcpy.Raster("in_memory/nlcd_after")
+    return stratRast
 
 
 def rollupToParentClass(df, columnsToGather, groupBy=None):
@@ -236,7 +254,7 @@ def calculate_plantable(plantableAreas, stratRast, treeCover, aoi, cellsize):
         arcpy.AddMessage("Skipping Plantable Areas - no data.")
 
 
-def calculate_disturbances(disturbanceRasters, stratRast):
+def disturbanceMax(disturbanceRasters, stratRast):
     if len(disturbanceRasters) == 1:
         disturbRast = disturbanceRasters[0]
     else:
@@ -277,16 +295,21 @@ def zonal_sum_carbon(stratRast, carbon_ag_bg_us, carbon_sd_dd_lt, carbon_so):
     return carbon
 
 
-def df2jsonstr(df_dict):
-    """
-    convert a dictionary of pandas dataframe to a json like string
-    :param df_dict: dictionary of pandas data frames
-    :return: json like string
-    """
-    return str({k: v.to_json(orient="records") for (k, v) in df_dict.iteritems()})
+# todo test calculating emissions by pixel, emission factor
+def calculateFNF(row):
+    list = ['Forest to Settlement', 'Forest to Other Land', 'Forest to Cropland', 'Forest to Grassland',
+            'Forest to Wetland']
+    if row['Category'] in list:
+        endClass = row['NLCD_2_ParentClass']
+        ag_bg = int(row['carbon_ag_bg_us']) * carbonStockLoss[str(endClass)]["biomass"]
+        sd_dd = int(row['carbon_sd_dd_lt']) * carbonStockLoss[str(endClass)]["dead organic matter"]
+        so = int(row['carbon_so']) * carbonStockLoss[str(endClass)]["dead organic matter"]
+        result = (ag_bg + sd_dd + so) * 44 / 12
+    else:
+        result = 0
+    return result
 
 
-# Define a function to calculate the "Category" based on the conditions
 def calculate_category(row):
     if row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
         return 'Forest Remaining Forest'
@@ -306,6 +329,26 @@ def calculate_category(row):
         return 'Nonforest to Nonforest'
 
 
+def calculateDisturbances(disturbRast, stratRast, forestAgeRaster, forestAge):
+    # calculate disturbances (insects, fires, harvest) by forestAgeRegionType and landuse change type
+    # pull the disturbance codes from the dictionary and loop through them
+    # map the NLCD class to the parent class in forest age dataframe
+    forestAge["NLCD_1_ParentClass"] = forestAge["NLCD1_class"].map(nlcdParentRollupCategories)
+    forestAge["NLCD_2_ParentClass"] = forestAge["NLCD2_class"].map(nlcdParentRollupCategories)
+    disturbance_cats = list(set(disturbanceLookup.values()))
+    for d in disturbance_cats:
+        pixValues = [k for k, v in disturbanceLookup.items() if v == d]
+        tempDisturbanceDF = tabulateAreaByStratification(
+            arcpy.sa.Con(arcpy.sa.InList(disturbRast, pixValues), stratRast, ""),
+            forestAgeRaster,
+            outputName="ForestAgeTypeRegion",
+            colNameArea=d)
+
+        forestAge = forestAge.merge(tempDisturbanceDF, how='outer', on=["StratificationValue", "NLCD1_class",
+                                                                        "NLCD2_class", "ForestAgeTypeRegion"])
+    return forestAge
+
+
 def fillNA(forestAge):
     # fill NA with zero to avoid calculation errors
     forestAge['fire_HA'] = forestAge['fire_HA'].fillna(0)
@@ -317,6 +360,19 @@ def fillNA(forestAge):
 
     # Apply the function to create the "Category" column
     forestAge['Category'] = forestAge.apply(calculate_category, axis=1)
+    return forestAge
+
+
+def mergeAgeFactors(forestAge, forest_lookup_csv):
+    # create list of columns to read
+    col_list = ['ForestAgeTypeRegion', 'Nonforest to Forest Removal Factor',
+                'Forests Remaining Forest Removal Factor', 'Fire Emissions Factor',
+                'Insect Emissions Factor', 'Harvest Emissions Factor']
+    # read the forest able using column list
+    forest_table = pd.read_csv(forest_lookup_csv, usecols=col_list)
+    # merge forestAge and forest lookup table
+    forestAge = pd.merge(forestAge, forest_table)
+    return forestAge
 
 
 def calculate_FRF(forestAge, year1, year2):
@@ -333,6 +389,15 @@ def calculate_FRF(forestAge, year1, year2):
     forestAge['Annual_Emissions_Insect_CO2'] = (
             (forestAge['insect_damage_HA'] * forestAge['Insect Emissions Factor']) * (44 / 12)
             / (int(year2) - int(year1)))
+
+
+def df2jsonstr(df_dict):
+    """
+    convert a dictionary of pandas dataframe to a json like string
+    :param df_dict: dictionary of pandas data frames
+    :return: json like string
+    """
+    return str({k: v.to_json(orient="records") for (k, v) in df_dict.iteritems()})
 
 
 def save_results(landuse_result, forestType_result, outputPath, datetime, startTime):
@@ -355,3 +420,5 @@ def save_results(landuse_result, forestType_result, outputPath, datetime, startT
     forestType_result.to_csv(strat_forest_csv, index=False)
 
     print("Total processing time: {}".format(datetime.now() - startTime))
+
+#todo summarize results in new data frame
