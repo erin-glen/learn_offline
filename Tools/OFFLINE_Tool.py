@@ -3,14 +3,12 @@ import arcpy
 import os
 import pandas as pd
 from datetime import datetime
+
 arcpy.env.overwriteOutput = True
 import pprint
 from lookups import disturbanceLookup, nlcdParentRollupCategories
-from funcs import tabulateAreaByStratification, ZonalSumByStratification, calculate_category
-
-"""
-This is a test
-"""
+from funcs import tabulateAreaByStratification, ZonalSumByStratification, calculate_category, save_results, \
+    calculate_FRF, fillNA, calculate_plantable, calculate_treeCanopy, calculate_disturbances, zonal_sum_carbon
 
 # pandas options
 pd.options.mode.chained_assignment = None  # suppressed chained assignment warnings
@@ -21,7 +19,6 @@ if arcpy.CheckExtension("Spatial") == "Available":
 else:
     # raise a custom exception
     raise Exception
-
 
 if __name__ == "__main__":
     wd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,8 +36,7 @@ if __name__ == "__main__":
     # hardcoded AOI for development - Montgomery County, Maryland
     # aoi = os.path.join(wd, "data", "AOI", "MontgomeryMD.shp")
     aoi_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\AOI"
-    aoi = os.path.join(aoi_path,(aoi_name + ".shp"))
-
+    aoi = os.path.join(aoi_path, (aoi_name + ".shp"))
 
     if "NLCD" in tree_canopy:
         treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\NLCD"
@@ -54,47 +50,47 @@ if __name__ == "__main__":
         forestAgeRaster=os.path.join(dataFolder, "ForestType", "forest_raster_07232020.tif"),
         ####NLCD tree canopy paths > comment out if not in use
         treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4.tif"),
-        treecanopy_2=os.path.join(treecanopy_path,  "nlcd_tcc_conus_" + year2 + "_v2021-4.tif"),
-        plantableAreas= "None",
+        treecanopy_2=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year2 + "_v2021-4.tif"),
+        plantableAreas="None",
         ####HighRes tree canopy paths > comment out if not in use
-        #treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4"),
-        #treecanopy_2=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year2 + "_v2021-4"),
+        # treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4"),
+        # treecanopy_2=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year2 + "_v2021-4"),
         carbon_ag_bg_us=os.path.join(dataFolder, "Carbon", "carbon_ag_bg_us.tif"),
         carbon_sd_dd_lt=os.path.join(dataFolder, "Carbon", "carbon_sd_dd_lt.tif"),
         carbon_so=os.path.join(dataFolder, "Carbon", "carbon_so.tif"),
         disturbanceRasters=[
-            #os.path.join(dataFolder, "Disturbances", "disturbance_0104.tif"),
-            #os.path.join(dataFolder, "Disturbances", "disturbance_0406.tif"),
-            #os.path.join(dataFolder, "Disturbances", "disturbance_0608.tif"),
-            #os.path.join(dataFolder, "Disturbances", "disturbance_0811.tif"),
-            #os.path.join(dataFolder, "Disturbances", "disturbance_1113.tif"),
-            #os.path.join(dataFolder, "Disturbances", "disturbance_1316.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_0104.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_0406.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_0608.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_0811.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_1113.tif"),
+            # os.path.join(dataFolder, "Disturbances", "disturbance_1316.tif"),
             os.path.join(dataFolder, "Disturbances", "disturbance_1619.tif")
         ]
     )
 
     startTime = datetime.now()
-    inputConfig["aoi"] = aoi # add the AOI to the inputConfig dictionary
+    inputConfig["aoi"] = aoi  # add the AOI to the inputConfig dictionary
 
-    #define the output directory
+    # define the output directory
     parentOutputDirectory = "U:/eglen/Projects/LEARN Tools/Data/Outputs/"
     dateTime = datetime.now()
     dateFormat = dateTime.strftime("%m_%d")
-    #outputFolderName = input("Name of output directory: ")
+    # outputFolderName = input("Name of output directory: ")
     outputFolderName = dateFormat + "_" + year1 + "_" + year2 + "_" + aoi_name
     outputPath = os.path.join(parentOutputDirectory, outputFolderName)
 
     if not os.path.exists(outputPath):
         os.makedirs(outputPath)
 
-
-    text_doc = os.path.join(outputPath,"doc")
-    with open(text_doc,'w') as doc:
+    text_doc = os.path.join(outputPath, "doc")
+    with open(text_doc, 'w') as doc:
         doc.write("Year 1: " + year1 + "\n")
         doc.write("Year 2: " + year2 + "\n")
         doc.write("Cellsize: " + cellsize + "\n")
         doc.write("Date: " + str(datetime.now()) + "\n" + "\n")
         doc.write(str(inputConfig.values()))
+
 
 def landuseStratificationRaster(nlcdRaster1, nlcdRaster2, aoi):
     """
@@ -147,144 +143,22 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
 
     # Tree Canopy - sum up all the pixels values for the average and difference (year 1 - year 2)
     arcpy.AddMessage("STEP 2: Summing up the tree canopy average & difference by stratification class")
-
-    # mask the tree canopy to the area of interest
-    # mask the tree canopy to the area of interest
-    if treecanopy_1 is not None and treecanopy_2 is not None:
-
-        # calculate the average tree canopy per pixel
-        with arcpy.EnvManager(mask=aoi, cellSize=(int(cellsize))):
-            treeCanopyAvg = (
-                                    arcpy.Raster(treecanopy_1) + arcpy.Raster(treecanopy_2)
-                            ) / 2  # average
-
-        # tree canopy loss this only happens on the pixels where there is loss
-        # logic would be something like Con(tree2 < tree1, tree1-tree2, 0)
-        # find the different where there is tree canopy loss
-        with arcpy.EnvManager(mask=aoi, cellSize=(cellsize)):
-            treeCanopyDiff = arcpy.sa.Con(
-                arcpy.Raster(treecanopy_2) < arcpy.Raster(treecanopy_1),
-                arcpy.Raster(treecanopy_1) - arcpy.Raster(treecanopy_2),
-                0,
-            )
-
-        # Optional hardcoded tree canopy loss: if using this, comment out the above tree canopy loss calculation
-        # treeCanopyDiff = r"U:\eglen\Projects\LEARN Tools\Data\AlternateData\Cincinnati\TreeCanopy_Loss.tif"
-
-        # zonal sum for each stratification class
-        tc_avg_df = ZonalSumByStratification(
-            stratRast, treeCanopyAvg, "TreeCanopy_HA", cellSize=30
-        )
-        tc_diff_df = ZonalSumByStratification(
-            stratRast, treeCanopyDiff, "TreeCanopyLoss_HA", cellSize=30
-        )
-
-        # drop columns to avoid duplicate cols
-        tc_diff_df.drop(["Hectares", "CellCount"], axis=1, inplace=True)
-        # merge the two dataframes
-        treeCover = tc_avg_df.merge(
-            tc_diff_df,
-            how="outer",
-            on=["StratificationValue", "NLCD1_class", "NLCD2_class"],
-        )
-
-        """
-            tree canopy notes...
-            cell size is now set to automatically update for TC based on tree canopy selection (1,30)
-            for non aggregated 1 m data: 0.0001 
-            if running at 1 meter, take * 900 out of formula, so just * 0.0001)
-            for aggregated data: 0.0001 (this one you can run at 30 meter cell size)
-        """
-
-        if "NLCD" in tree_canopy:
-            # ie 50% is 50/100 * 900 square meters  * 0.0001 HA = 0.045 canopy in HA
-            treeCover["TreeCanopy_HA"] = (
-                    treeCover["TreeCanopy_HA"] / 100 * 900 * 0.0001
-            )  # % canopy * pixel size * sq m to ha
-            treeCover["TreeCanopyLoss_HA"] = (
-                    treeCover["TreeCanopyLoss_HA"] / 100 * 900 * 0.0001
-            )  # % canopy * pixel size * sq m to ha
-        else:
-            treeCover["TreeCanopy_HA"] = (
-                    treeCover["TreeCanopy_HA"] * 0.0001 * 900
-            )  # % canopy * pixel size * sq m to ha
-            treeCover["TreeCanopyLoss_HA"] = (
-                    treeCover["TreeCanopyLoss_HA"] * 0.0001 * 900
-            )  # % canopy * pixel size * sq m to ha
-
-        # drop columns to avoid duplicates names when merging"StratificationValue", "NLCD1_class", "NLCD2_class"
-        treeCover.drop(["Hectares", "CellCount"], axis=1, inplace=True)
-
-    else:
-        arcpy.AddMessage("Skipping Tree Canopy - no data.")
-        treeCover = pd.DataFrame(columns=["StratificationValue", "NLCD1_class", "NLCD2_class",
-                                          "TreeCanopy_HA", "TreeCanopyLoss_HA"])
+    treeCover = calculate_treeCanopy(treecanopy_1, treecanopy_2, stratRast, tree_canopy, aoi, cellsize)
 
     # Plantable areas - sum up pixel values for plantable areas in year 2
     arcpy.AddMessage("STEP 2.5: Summing plantable areas by stratification class")
-
-    if plantableAreas != "None":
-        # calculate the average tree canopy per pixel
-        with arcpy.EnvManager(mask=aoi, cellSize=(int(cellsize))):
-            plantableRaster = (arcpy.Raster(plantableAreas))
-
-        plantable_sum = ZonalSumByStratification(stratRast, plantableRaster, "Plantable_HA", cellSize=30)
-
-        # merge the two dataframes
-        treeCover = treeCover.merge(
-            plantable_sum,
-            how="outer",
-            on=["StratificationValue", "NLCD1_class", "NLCD2_class"],
-        )
-
-        treeCover["Plantable_HA"] = (
-                treeCover["Plantable_HA"] * 0.0001 * 900)
-
-        # drop columns to avoid duplicates names when merging"StratificationValue", "NLCD1_class", "NLCD2_class"
-        treeCover.drop(["Hectares", "CellCount"], axis=1, inplace=True)
-
-    else:
-        arcpy.AddMessage("Skipping Plantable Areas - no data.")
+    calculate_plantable(plantableAreas,stratRast,treeCover,aoi,cellsize)
 
     ###### --------------- Disturbance - tabulate the area -----------------
     arcpy.AddMessage("STEP 3: Cross tabulating disturbance area by stratification class")
     arcpy.AddMessage("Number of disturbance rasters: {}".format(len(disturbanceRasters)))
-    if len(disturbanceRasters) == 1:
-        disturbRast = disturbanceRasters[0]
-    else:
-        disturbRast = arcpy.sa.CellStatistics(disturbanceRasters, "MAXIMUM", ignore_nodata="DATA")
-    disturbance = tabulateAreaByStratification(stratRast, disturbRast, outputName="Disturbance")
-    disturbance["DisturbanceClass"] = disturbance["Disturbance"].map(disturbanceLookup)
+    disturbance_wide, disturbRast = calculate_disturbances(disturbanceRasters, stratRast)
 
-    # convert disturbances to wide dataframe and sum classes that are the same together to get total area
-    disturbance_wide = disturbance.pivot_table(index=['StratificationValue', 'NLCD1_class', 'NLCD2_class'],
-                                               columns='DisturbanceClass', values='Hectares',
-                                               aggfunc='sum').reset_index()
-
-    if not any(x in ["fire_HA", "harvest_HA", "insect_damage_HA"] for x in disturbance_wide.columns):
-        disturbance_wide = pd.DataFrame(columns=['StratificationValue', 'NLCD1_class', 'NLCD2_class'])
 
     # Carbon - zonal sum
     arcpy.AddMessage("STEP 4: Zonal statistics sum for carbon rasters by stratification class")
-    carbon_ag_bg_us_df = ZonalSumByStratification(stratRast, carbon_ag_bg_us, "carbon_ag_bg_us")
-    carbon_sd_dd_lt_df = ZonalSumByStratification(stratRast, carbon_sd_dd_lt, "carbon_sd_dd_lt")
-    carbon_so_df = ZonalSumByStratification(stratRast, carbon_so, "carbon_so")
+    carbon = zonal_sum_carbon(stratRast, carbon_ag_bg_us, carbon_sd_dd_lt, carbon_so)
 
-    # drop columns to avoid duplicates names (hectares + areas are the same since the zones are identical)
-    carbon_sd_dd_lt_df.drop(["Hectares", "CellCount"], axis=1, inplace=True)
-    carbon_so_df.drop(["Hectares", "CellCount"], axis=1, inplace=True)
-
-    # merge the three dataframes into one by joining on the two NLCD classes
-    carbon = carbon_ag_bg_us_df.merge(
-        carbon_sd_dd_lt_df, how='outer', on=["StratificationValue", "NLCD1_class", "NLCD2_class"]
-    ).merge(carbon_so_df, how='outer', on=["StratificationValue", "NLCD1_class", "NLCD2_class"])
-
-    # unit conversions
-    # pixels are in metric tons Carbon per hectare
-    # metric tons C / hectare * 1 hectare / 10000 square meters * 900 square meters  = metric tons carbon
-    carbon["carbon_ag_bg_us"] = carbon["carbon_ag_bg_us"] / 10000 * 900
-    carbon["carbon_sd_dd_lt"] = carbon["carbon_sd_dd_lt"] / 10000 * 900
-    carbon["carbon_so"] = carbon["carbon_so"] / 10000 * 900
 
     # merge disturbance area, tree cover totals, carbon totals by stratification class
     groupByLanduseChangeDF = carbon.merge(treeCover, how='outer',
@@ -299,7 +173,7 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
     # merge forestAge area total + disturbance areas by forestAge
     arcpy.AddMessage("STEP 6: Tabulating disturbance area for the forest age types by stratification class for fires")
 
-    #map the NLCD class to the parent class in forest age dataframe
+    # map the NLCD class to the parent class in forest age dataframe
     forestAge["NLCD_1_ParentClass"] = forestAge["NLCD1_class"].map(nlcdParentRollupCategories)
     forestAge["NLCD_2_ParentClass"] = forestAge["NLCD2_class"].map(nlcdParentRollupCategories)
 
@@ -316,85 +190,35 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, carbo
 
         forestAge = forestAge.merge(tempDisturbanceDF, how='outer', on=["StratificationValue", "NLCD1_class",
                                                                         "NLCD2_class", "ForestAgeTypeRegion"])
-    #fill NA with zero to avoid calculation errors
-    forestAge['fire_HA'] = forestAge['fire_HA'].fillna(0)
-    forestAge['insect_damage_HA'] = forestAge['insect_damage_HA'].fillna(0)
-    forestAge['harvest_HA'] = forestAge['harvest_HA'].fillna(0)
-    #calculate undisturbed forest arew
-    forestAge['undisturbed_HA'] = forestAge['Hectares'] - forestAge['fire_HA'] - forestAge['harvest_HA'] - forestAge['insect_damage_HA']
+    # fill empty cells with zero for calaculations
+    fillNA(forestAge)
 
-    # Apply the function to create the "Category" column
-    forestAge['Category'] = forestAge.apply(calculate_category, axis=1)
-
-    #todo add this to input config
-    #enter the path to the forest lookup table
+    # todo add to input config
+    # enter the path to the forest lookup table
     forest_lookup_csv = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\ForestType\forest_raster_09172020.csv"
 
-    #create list of columns to read
+    # create list of columns to read
     col_list = ['ForestAgeTypeRegion', 'Nonforest to Forest Removal Factor',
                 'Forests Remaining Forest Removal Factor', 'Fire Emissions Factor',
                 'Insect Emissions Factor', 'Harvest Emissions Factor']
-    #read the forest able using column list
+    # read the forest able using column list
     forest_table = pd.read_csv(forest_lookup_csv, usecols=col_list)
-    #merge forestAge and forest lookup table
+    # merge forestAge and forest lookup table
     forestAge = pd.merge(forestAge, forest_table)
 
-    forestAge['Annual_Removals_Undisturbed_C02'] = (
-            (forestAge['undisturbed_HA'] * forestAge['Forests Remaining Forest Removal Factor']) * (44 / 12))
-    forestAge['Annual_Removals_N_to_F_C02'] = (
-             (forestAge['Hectares'] * forestAge['Nonforest to Forest Removal Factor']) * (44 / 12))
-    forestAge['Annual_Emissions_Fire_CO2'] = (
-            (forestAge['fire_HA'] * forestAge['Fire Emissions Factor']) * (44 / 12)
-            / (int(year2) - int(year1)))
-    forestAge['Annual_Emissions_Harvest_CO2'] = (
-            (forestAge['harvest_HA'] * forestAge['Harvest Emissions Factor']) * (44 / 12)
-            / (int(year2) - int(year1)))
-    forestAge['Annual_Emissions_Insect_CO2'] = (
-            (forestAge['insect_damage_HA'] * forestAge['Insect Emissions Factor']) * (44 / 12)
-            / (int(year2) - int(year1)))
+    # calcaulte emissiosn from disturbances, removals from forests remaining forests,
+    # and removals from nonforest to forest using function
+    calculate_FRF(forestAge, year1, year2)
 
-    # def calculate_emissions(row):
-    #     if row['Category'] == 'Forest to Settelment':
-    #     elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Settlement':
-    #         return 'Forest to Settlement'
-    #     elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Other Land':
-    #         return 'Forest to Other Land'
-    #     elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Cropland':
-    #         return 'Forest to Cropland'
-    #     elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Grassland':
-    #         return 'Forest to Grassland'
-    #     elif row['NLCD_1_ParentClass'] == 'Forestland' and row['NLCD_2_ParentClass'] == 'Wetland':
-    #         return 'Forest to Wetland'
-    #     elif row['NLCD_1_ParentClass'] != 'Forestland' and row['NLCD_2_ParentClass'] == 'Forestland':
-    #         return 'Nonforest to Forest'
-    #     else:
-    #         return 'Nonforest to Nonforest'
     # todo add function to calculate emissions using dictionary
-    # todo add calculations to dataframe
 
     return groupByLanduseChangeDF.sort_values(by=["Hectares"], ascending=False), forestAge.sort_values(
         by=["Hectares"],
         ascending=False)
 
-# # stratification areas/sums for each of the value rasters
+
+# # execute the main function
 landuse_result, forestType_result = main(**inputConfig)
 
-# build the json like string that contains all the results
-print(
-    '{{"stratificationByLanduse": {}, "stratificationByForestAgeRegionType": {}}}'.format(
-        landuse_result.to_json(orient="records"),
-        forestType_result.to_json(orient="records")
-    )
-)
-
-# save the dataframes as csvs
-strat_csv = os.path.join(outputPath, "stratificationByLanduse.csv")
-strat_forest_csv = os.path.join(outputPath, "stratificationByForestAgeRegionType.csv")
-
-print(strat_csv)
-print(strat_forest_csv)
-
-landuse_result.to_csv(strat_csv, index=False)
-forestType_result.to_csv(strat_forest_csv, index=False)
-
-print("Total processing time: {}".format(datetime.now() - startTime))
+# save the results
+save_results(landuse_result,forestType_result,outputPath,datetime,startTime)
