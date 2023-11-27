@@ -9,7 +9,8 @@ import pprint
 from lookups import disturbanceLookup, nlcdParentRollupCategories, carbonStockLoss
 from funcs import tabulateAreaByStratification, ZonalSumByStratification, calculate_category, save_results, \
     calculate_FRF, fillNA, calculate_plantable, calculate_treeCanopy, disturbanceMax, zonal_sum_carbon, \
-    landuseStratificationRaster, calculateDisturbances, mergeAgeFactors, calculateFNF
+    landuseStratificationRaster, calculateDisturbances, mergeAgeFactors, calculateFNF, summarize_ghg, \
+    summarize_treecanopy, create_matrix
 
 # pandas options
 pd.options.mode.chained_assignment = None  # suppressed chained assignment warnings
@@ -170,8 +171,6 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plant
     # and removals from non forest to forest using function
     calculate_FRF(forestAge, year1, year2)
 
-    # todo add function to calculate emissions using dictionary
-
     return groupByLanduseChangeDF.sort_values(by=["Hectares"], ascending=False), forestAge.sort_values(
         by=["Hectares"],
         ascending=False)
@@ -180,5 +179,13 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plant
 # # execute the main function
 landuse_result, forestType_result = main(**inputConfig)
 
+# summarize the results
+years = int(year2) - int(year1)
+summarize_treecanopy(landuse_result)
+matrix = create_matrix(landuse_result)
+ghg_result = summarize_ghg(landuse_result, forestType_result, years)
+
 # save the results
-save_results(landuse_result, forestType_result, outputPath, datetime, startTime)
+save_results(landuse_result, forestType_result, ghg_result, matrix, outputPath, datetime, startTime)
+
+

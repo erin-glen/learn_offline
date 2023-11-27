@@ -301,9 +301,9 @@ def calculateFNF(row):
             'Forest to Wetland']
     if row['Category'] in list:
         endClass = row['NLCD_2_ParentClass']
-        ag_bg = int(row['carbon_ag_bg_us']) * carbonStockLoss[str(endClass)]["biomass"]
-        sd_dd = int(row['carbon_sd_dd_lt']) * carbonStockLoss[str(endClass)]["dead organic matter"]
-        so = int(row['carbon_so']) * carbonStockLoss[str(endClass)]["dead organic matter"]
+        ag_bg = row['carbon_ag_bg_us'] * carbonStockLoss[str(endClass)]["biomass"]
+        sd_dd = row['carbon_sd_dd_lt'] * carbonStockLoss[str(endClass)]["dead organic matter"]
+        so = row['carbon_so'] * carbonStockLoss[str(endClass)]["soil organic"]
         result = (ag_bg + sd_dd + so) * 44 / 12
     else:
         result = 0
@@ -400,7 +400,7 @@ def df2jsonstr(df_dict):
     return str({k: v.to_json(orient="records") for (k, v) in df_dict.iteritems()})
 
 
-def save_results(landuse_result, forestType_result, outputPath, datetime, startTime):
+def save_results(landuse_result, forestType_result, ghg_result, matrix, outputPath, datetime, startTime):
     # build the json like string that contains all the results
     print(
         '{{"stratificationByLanduse": {}, "stratificationByForestAgeRegionType": {}}}'.format(
@@ -412,13 +412,177 @@ def save_results(landuse_result, forestType_result, outputPath, datetime, startT
     # save the dataframes as csvs
     strat_csv = os.path.join(outputPath, "stratificationByLanduse.csv")
     strat_forest_csv = os.path.join(outputPath, "stratificationByForestAgeRegionType.csv")
+    summarize_csv = os.path.join(outputPath, "ghg_summary.csv")
+    matrix_csv = os.path.join(outputPath,"matrix.csv")
 
     print(strat_csv)
     print(strat_forest_csv)
 
     landuse_result.to_csv(strat_csv, index=False)
     forestType_result.to_csv(strat_forest_csv, index=False)
+    ghg_result.to_csv(summarize_csv, index=False)
+    matrix.to_csv(matrix_csv, index=False)
 
     print("Total processing time: {}".format(datetime.now() - startTime))
 
-#todo summarize results in new data frame
+
+#todo round all outputs
+# todo clean up ghg summary functions
+#todo output as single csv
+#todo test plantable areas
+#todo add input assertions
+def summarize_treecanopy(landuse_result):
+    nonforest_df = landuse_result[landuse_result['Category'] == 'Nonforest to Nonforest']
+
+    # Define the columns to sum
+    sum_columns = ['Hectares', 'TreeCanopy_HA', 'TreeCanopyLoss_HA']
+    if 'Plantable_HA' in landuse_result.columns:
+        sum_columns.append('Plantable_HA')
+
+    summary = nonforest_df.groupby('NLCD_2_ParentClass')[sum_columns].sum().reset_index()
+    summary["Percent Tree Cover"] = (summary["TreeCanopy_HA"] / summary["Hectares"]) * 100
+    if 'Plantable_HA' in summary:
+        summary["Percent Plantable"] = (summary["Plantable_HA"] / summary["Hectares"]) * 100
+
+    # Drop 'Hectares' column if it's not needed anymore
+    if 'Hectares' in summary.columns:
+        summary = summary.drop('Hectares', axis=1)
+
+    # Round all numerical columns
+    for column in summary.select_dtypes(include=['float', 'int']):
+        summary[column] = summary[column].round().astype(int)
+
+    print(summary)
+
+# Call the function with your DataFrame
+# summarize_treecanopy(your_dataframe)
+
+def create_matrix(landuse_result):
+    # Define the specific order for the land cover classes
+    class_order = [
+        'Deciduous Forest', 'Evergreen Forest', 'Mixed Forest', 'Woody Wetlands',
+        'Cultivated Crops', 'Pasture/Hay', 'Grassland/Herbaceous', 'Shrub/Scrub',
+        'Open Water', 'Emergent Herbaceous Wetlands', 'Developed, Open Space',
+        'Developed, Low Intensity', 'Developed, Medium Intensity',
+        'Developed, High Intensity', 'Barren Land', 'Perennial Ice/Snow'
+    ]
+
+    # Create the land cover transition matrix
+    transition_matrix = landuse_result.pivot_table(index='NLCD1_class', columns='NLCD2_class', values='Hectares',
+                                       aggfunc='sum', fill_value=0)
+
+    # Reorder the matrix to match the specified class order for both rows and columns
+    transition_matrix = transition_matrix.reindex(index=class_order, columns=class_order, fill_value=0)
+
+    # Calculate the totals for rows and columns
+    transition_matrix['Total'] = transition_matrix.sum(axis=1)
+    transition_matrix.loc['Total'] = transition_matrix.sum(axis=0)
+
+    # Reset index to make 'NLCD1_class' a column again
+    transition_matrix.reset_index(inplace=True)
+    transition_matrix.rename(columns={'index': 'NLCD1_class'}, inplace=True)
+
+    # Round all numerical columns
+    for column in transition_matrix.select_dtypes(include=['float', 'int']):
+        transition_matrix[column] = transition_matrix[column].round().astype(int)
+
+
+    return transition_matrix
+
+def calculate_area(category, type, landuse_result, forestType_result):
+    if category == "Forest Change" and type == "To Cropland":
+        area = int(landuse_result.loc[landuse_result['Category'] == 'Forest to Cropland', 'Hectares'].sum())
+    elif category == "Forest Change" and type == "To Grassland":
+        area = int(landuse_result.loc[landuse_result['Category'] == 'Forest to Grassland', 'Hectares'].sum())
+    elif category == "Forest Change" and type == "To Settlement":
+        area = int(landuse_result.loc[landuse_result['Category'] == 'Forest to Settlement', 'Hectares'].sum())
+    elif category == "Forest Change" and type == "To Wetland":
+        area = int(landuse_result.loc[landuse_result['Category'] == 'Forest to Wetland', 'Hectares'].sum())
+    elif category == "Forest Change" and type == "To Other":
+        area = int(landuse_result.loc[landuse_result['Category'] == 'Forest to Other Land', 'Hectares'].sum())
+    elif category == "Forest Change" and type == "Reforestation (Non-Forest to Forest)":
+        area = int(forestType_result.loc[forestType_result['Category'] == 'Nonforest to Forest', 'Hectares'].sum())
+    elif category == "Forest Remaining Forest" and type == "Undisturbed":
+        area = int(
+            forestType_result.loc[forestType_result['Category'] == 'Forest Remaining Forest', 'undisturbed_HA'].sum())
+    elif category == "Forest Remaining Forest" and type == "Fire":
+        area = int(forestType_result.loc[forestType_result['Category'] == 'Forest Remaining Forest', 'fire_HA'].sum())
+    elif category == "Forest Remaining Forest" and type == "Insect/Disease":
+        area = int(
+            forestType_result.loc[forestType_result['Category'] == 'Forest Remaining Forest', 'insect_damage_HA'].sum())
+    elif category == "Forest Remaining Forest" and type == "Harvest/Other":
+        area = int(
+            forestType_result.loc[forestType_result['Category'] == 'Forest Remaining Forest', 'harvest_HA'].sum())
+    elif category == "Trees Outside Forest" and type == "Canopy maintained/gained":
+        area = int(landuse_result.loc[landuse_result['Category'] == 'Nonforest to Nonforest', 'TreeCanopy_HA'].sum())
+    elif category == "Trees Outside Forest" and type == "Tree canopy loss":
+        area = int(
+            landuse_result.loc[landuse_result['Category'] == 'Nonforest to Nonforest', 'TreeCanopyLoss_HA'].sum())
+    else:
+        area = "Error"
+    return area
+
+
+def calculate_ghg_flux(category, type, landuse_result, forestType_result, years):
+    if category == "Forest Change" and type == "To Cropland":
+        ghg = int(
+            (landuse_result.loc[landuse_result['Category'] == 'Forest to Cropland', 'Total Emissions Forest to Non ' \
+                                                                                    'Forest CO2'].sum()) / years)
+    elif category == "Forest Change" and type == "To Grassland":
+        ghg = int(
+            (landuse_result.loc[landuse_result['Category'] == 'Forest to Grassland', 'Total Emissions Forest to Non ' \
+                                                                                     'Forest CO2'].sum()) / years)
+    elif category == "Forest Change" and type == "To Settlement":
+        ghg = int(
+            (landuse_result.loc[landuse_result['Category'] == 'Forest to Settlement', 'Total Emissions Forest to Non ' \
+                                                                                      'Forest CO2'].sum()) / years)
+    elif category == "Forest Change" and type == "To Wetland":
+        ghg = int(
+            (landuse_result.loc[landuse_result['Category'] == 'Forest to Wetland', 'Total Emissions Forest to Non ' \
+                                                                                   'Forest CO2'].sum()) / years)
+    elif category == "Forest Change" and type == "To Other":
+        ghg = int(
+            (landuse_result.loc[landuse_result['Category'] == 'Forest to Other Land', 'Total Emissions Forest to Non ' \
+                                                                                      'Forest CO2'].sum()) / years)
+    elif category == "Forest Change" and type == "Reforestation (Non-Forest to Forest)":
+        ghg = int((forestType_result.loc[
+                       forestType_result['Category'] == 'Nonforest to Forest', 'Annual_Removals_N_to_F_C02'].sum()))
+    elif category == "Forest Remaining Forest" and type == "Undisturbed":
+        ghg = int(forestType_result.loc[forestType_result[
+                                            'Category'] == 'Forest Remaining Forest', 'Annual_Removals_Undisturbed_C02'].sum())
+    elif category == "Forest Remaining Forest" and type == "Fire":
+        ghg = int(forestType_result.loc[
+                      forestType_result['Category'] == 'Forest Remaining Forest', 'Annual_Emissions_Fire_CO2'].sum())
+    elif category == "Forest Remaining Forest" and type == "Insect/Disease":
+        ghg = int(forestType_result.loc[
+                      forestType_result['Category'] == 'Forest Remaining Forest', 'Annual_Emissions_Insect_CO2'].sum())
+    elif category == "Forest Remaining Forest" and type == "Harvest/Other":
+        ghg = int(forestType_result.loc[
+                      forestType_result['Category'] == 'Forest Remaining Forest', 'Annual_Emissions_Harvest_CO2'].sum())
+    elif category == "Trees Outside Forest" and type == "Canopy maintained/gained":
+        ghg = 0
+    elif category == "Trees Outside Forest" and type == "Tree canopy loss":
+        ghg = 0
+    else:
+        ghg = "Error"
+    return ghg
+
+
+def summarize_ghg(landuse_result, forestType_result, years):
+    ghg_result = pd.DataFrame()
+    ghg_result["Category"] = ['Forest Change', 'Forest Change', 'Forest Change', 'Forest Change', 'Forest Change',
+                              'Forest Change', 'Forest Remaining Forest', 'Forest Remaining Forest',
+                              'Forest Remaining Forest', 'Forest Remaining Forest', 'Trees Outside Forest',
+                              'Trees Outside Forest']
+    ghg_result["Type"] = ['To Cropland', 'To Grassland', 'To Settlement', 'To Wetland', 'To Other',
+                          'Reforestation (Non-Forest to Forest)', 'Undisturbed', 'Fire', 'Insect/Disease',
+                          'Harvest/Other', 'Tree canopy loss', 'Canopy maintained/gained']
+    ghg_result["Emissions/Removals"] = ['Emissions', 'Emissions', 'Emissions', 'Emissions', 'Emissions', 'Removals',
+                                        'Removals', 'Emissions', 'Emissions', 'Emissions', 'Emissions', 'Removals']
+    # Add calculations for 'Area (ha, total)' and 'GHG Flux (t CO2e/year)'
+    ghg_result['Area (ha, total)'] = [calculate_area(cat, typ, landuse_result, forestType_result)
+                                      for cat, typ in zip(ghg_result['Category'], ghg_result['Type'])]
+    ghg_result['GHG Flux (t CO2e/year)'] = [calculate_ghg_flux(cat, typ, landuse_result, forestType_result, years)
+                                            for cat, typ in zip(ghg_result['Category'], ghg_result['Type'])]
+
+    return ghg_result
