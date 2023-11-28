@@ -3,14 +3,13 @@ import arcpy
 import os
 import pandas as pd
 from datetime import datetime
-
-arcpy.env.overwriteOutput = True
-import pprint
-from lookups import disturbanceLookup, nlcdParentRollupCategories, carbonStockLoss
-from funcs import tabulateAreaByStratification, ZonalSumByStratification, calculate_category, save_results, \
+from lookups import nlcdParentRollupCategories
+from funcs import tabulateAreaByStratification, calculate_category, save_results, \
     calculate_FRF, fillNA, calculate_plantable, calculate_treeCanopy, disturbanceMax, zonal_sum_carbon, \
     landuseStratificationRaster, calculateDisturbances, mergeAgeFactors, calculateFNF, summarize_ghg, \
-    summarize_treecanopy, create_matrix
+    summarize_treecanopy, create_matrix, write_dataframes_to_csv
+
+arcpy.env.overwriteOutput = True
 
 # pandas options
 pd.options.mode.chained_assignment = None  # suppressed chained assignment warnings
@@ -29,11 +28,17 @@ if __name__ == "__main__":
     dataFolder = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters"  # CHANGE this to the data folder location
     alternateDataFolder = r"U:\eglen\Projects\LEARN Tools\Data\AlternateData"
 
+    years_list = ["2001", "2004", "2006", "2008", "2011", "2013", "2016", "2019", "2021"]
     year1 = str(input("Year 1: "))
+    assert year1 in years_list, f"{year1} is not in the list of valid inputs."
     year2 = str(input("Year 2: "))
-    cellsize = input("Cell size: ")
+    assert year2 in years_list, f"{year2} is not in the list of valid inputs."
     aoi_name = input("Name of AOI? ")
+    tree_canopy_list = ["NLCD", "Local"]
     tree_canopy = input("Tree Canopy source? ")
+    assert tree_canopy in tree_canopy_list, f"{tree_canopy} is not in the list of valid inputs."
+
+    cellsize = "30"
 
     # hardcoded AOI for development - Montgomery County, Maryland
     # aoi = os.path.join(wd, "data", "AOI", "MontgomeryMD.shp")
@@ -52,7 +57,7 @@ if __name__ == "__main__":
         forestAgeRaster=os.path.join(dataFolder, "ForestType", "forest_raster_07232020.tif"),
         treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4.tif"),
         treecanopy_2=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year2 + "_v2021-4.tif"),
-        plantableAreas="None",
+        plantableAreas=r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\Plantable\Howard\PA_Howard.tif",
         carbon_ag_bg_us=os.path.join(dataFolder, "Carbon", "carbon_ag_bg_us.tif"),
         carbon_sd_dd_lt=os.path.join(dataFolder, "Carbon", "carbon_sd_dd_lt.tif"),
         carbon_so=os.path.join(dataFolder, "Carbon", "carbon_so.tif"),
@@ -131,7 +136,7 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plant
     # Plantable areas - sum up pixel values for plantable areas in year 2
     arcpy.AddMessage("STEP 2.5: Summing plantable areas by stratification class")
     # add these results to the output
-    calculate_plantable(plantableAreas, stratRast, treeCover, aoi, cellsize)
+    treeCover = calculate_plantable(plantableAreas, stratRast, treeCover, aoi, cellsize)
 
     ###### --------------- Disturbance - tabulate the area -----------------
     arcpy.AddMessage("STEP 3: Cross tabulating disturbance area by stratification class")
@@ -151,7 +156,8 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plant
     groupByLanduseChangeDF["NLCD_1_ParentClass"] = groupByLanduseChangeDF["NLCD1_class"].map(nlcdParentRollupCategories)
     groupByLanduseChangeDF["NLCD_2_ParentClass"] = groupByLanduseChangeDF["NLCD2_class"].map(nlcdParentRollupCategories)
     groupByLanduseChangeDF['Category'] = groupByLanduseChangeDF.apply(calculate_category, axis=1)
-    groupByLanduseChangeDF['Total Emissions Forest to Non Forest CO2'] = groupByLanduseChangeDF.apply(calculateFNF, axis=1)
+    groupByLanduseChangeDF['Total Emissions Forest to Non Forest CO2'] = groupByLanduseChangeDF.apply(calculateFNF,
+                                                                                                      axis=1)
 
     # Forest Age Type - tabulate the area
     arcpy.AddMessage("STEP 5: Tabulating total area for the forest age types by stratification class")
@@ -159,14 +165,15 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plant
 
     # merge forestAge area total + disturbance areas by forestAge
     arcpy.AddMessage("STEP 6: Tabulating disturbance area for the forest age types by stratification class for fires")
-    forestAge = calculateDisturbances(disturbRast,stratRast,forestAgeRaster,forestAge)
+    forestAge = calculateDisturbances(disturbRast, stratRast, forestAgeRaster, forestAge)
 
     # fill empty cells with zero for calculations
     forestAge = fillNA(forestAge)
 
     forestAge = mergeAgeFactors(forestAge, forest_lookup_csv)
 
-    arcpy.AddMessage("STEP 7: Calculating emissions from disturbances and removals from undisturbed forests / non forest to forest")
+    arcpy.AddMessage(
+        "STEP 7: Calculating emissions from disturbances and removals from undisturbed forests / non forest to forest")
     # calculate emissions from disturbances, removals from forests remaining forests,
     # and removals from non forest to forest using function
     calculate_FRF(forestAge, year1, year2)
@@ -179,13 +186,16 @@ def main(aoi, nlcd_1, nlcd_2, forestAgeRaster, treecanopy_1, treecanopy_2, plant
 # # execute the main function
 landuse_result, forestType_result = main(**inputConfig)
 
+# save the results
+save_results(landuse_result, forestType_result, outputPath, datetime, startTime)
+
 # summarize the results
 years = int(year2) - int(year1)
-summarize_treecanopy(landuse_result)
-matrix = create_matrix(landuse_result)
+tc_summary = summarize_treecanopy(landuse_result)
+transition_matrix = create_matrix(landuse_result)
 ghg_result = summarize_ghg(landuse_result, forestType_result, years)
 
-# save the results
-save_results(landuse_result, forestType_result, ghg_result, matrix, outputPath, datetime, startTime)
-
-
+# save the summary
+df_list = [transition_matrix, tc_summary, ghg_result]
+csv_file_path = os.path.join(outputPath, "summary.csv")
+write_dataframes_to_csv(df_list, csv_file_path, space=5)

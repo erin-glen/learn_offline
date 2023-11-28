@@ -252,6 +252,7 @@ def calculate_plantable(plantableAreas, stratRast, treeCover, aoi, cellsize):
 
     else:
         arcpy.AddMessage("Skipping Plantable Areas - no data.")
+    return treeCover
 
 
 def disturbanceMax(disturbanceRasters, stratRast):
@@ -295,7 +296,6 @@ def zonal_sum_carbon(stratRast, carbon_ag_bg_us, carbon_sd_dd_lt, carbon_so):
     return carbon
 
 
-# todo test calculating emissions by pixel, emission factor
 def calculateFNF(row):
     list = ['Forest to Settlement', 'Forest to Other Land', 'Forest to Cropland', 'Forest to Grassland',
             'Forest to Wetland']
@@ -400,7 +400,7 @@ def df2jsonstr(df_dict):
     return str({k: v.to_json(orient="records") for (k, v) in df_dict.iteritems()})
 
 
-def save_results(landuse_result, forestType_result, ghg_result, matrix, outputPath, datetime, startTime):
+def save_results(landuse_result, forestType_result, outputPath, datetime, startTime):
     # build the json like string that contains all the results
     print(
         '{{"stratificationByLanduse": {}, "stratificationByForestAgeRegionType": {}}}'.format(
@@ -412,25 +412,16 @@ def save_results(landuse_result, forestType_result, ghg_result, matrix, outputPa
     # save the dataframes as csvs
     strat_csv = os.path.join(outputPath, "stratificationByLanduse.csv")
     strat_forest_csv = os.path.join(outputPath, "stratificationByForestAgeRegionType.csv")
-    summarize_csv = os.path.join(outputPath, "ghg_summary.csv")
-    matrix_csv = os.path.join(outputPath,"matrix.csv")
 
     print(strat_csv)
     print(strat_forest_csv)
 
     landuse_result.to_csv(strat_csv, index=False)
     forestType_result.to_csv(strat_forest_csv, index=False)
-    ghg_result.to_csv(summarize_csv, index=False)
-    matrix.to_csv(matrix_csv, index=False)
 
     print("Total processing time: {}".format(datetime.now() - startTime))
 
 
-#todo round all outputs
-# todo clean up ghg summary functions
-#todo output as single csv
-#todo test plantable areas
-#todo add input assertions
 def summarize_treecanopy(landuse_result):
     nonforest_df = landuse_result[landuse_result['Category'] == 'Nonforest to Nonforest']
 
@@ -452,16 +443,14 @@ def summarize_treecanopy(landuse_result):
     for column in summary.select_dtypes(include=['float', 'int']):
         summary[column] = summary[column].round().astype(int)
 
-    print(summary)
+    return summary
 
-# Call the function with your DataFrame
-# summarize_treecanopy(your_dataframe)
 
 def create_matrix(landuse_result):
     # Define the specific order for the land cover classes
     class_order = [
         'Deciduous Forest', 'Evergreen Forest', 'Mixed Forest', 'Woody Wetlands',
-        'Cultivated Crops', 'Pasture/Hay', 'Grassland/Herbaceous', 'Shrub/Scrub',
+        'Cultivated Crops', 'Hay/Pasture', 'Herbaceous', 'Shrub/Scrub',
         'Open Water', 'Emergent Herbaceous Wetlands', 'Developed, Open Space',
         'Developed, Low Intensity', 'Developed, Medium Intensity',
         'Developed, High Intensity', 'Barren Land', 'Perennial Ice/Snow'
@@ -469,25 +458,29 @@ def create_matrix(landuse_result):
 
     # Create the land cover transition matrix
     transition_matrix = landuse_result.pivot_table(index='NLCD1_class', columns='NLCD2_class', values='Hectares',
-                                       aggfunc='sum', fill_value=0)
+                                                   aggfunc='sum', fill_value=0)
 
     # Reorder the matrix to match the specified class order for both rows and columns
     transition_matrix = transition_matrix.reindex(index=class_order, columns=class_order, fill_value=0)
 
     # Calculate the totals for rows and columns
     transition_matrix['Total'] = transition_matrix.sum(axis=1)
-    transition_matrix.loc['Total'] = transition_matrix.sum(axis=0)
+    transition_matrix.loc['Total', :] = transition_matrix.sum()
 
     # Reset index to make 'NLCD1_class' a column again
     transition_matrix.reset_index(inplace=True)
-    transition_matrix.rename(columns={'index': 'NLCD1_class'}, inplace=True)
+
+    # Ensure the column names are correct after resetting the index
+    cols = ['NLCD1_class'] + class_order + ['Total']
+    transition_matrix = transition_matrix[cols]
 
     # Round all numerical columns
-    for column in transition_matrix.select_dtypes(include=['float', 'int']):
-        transition_matrix[column] = transition_matrix[column].round().astype(int)
-
+    for column in transition_matrix.select_dtypes(include=['float', 'int']).columns:
+        if column != 'NLCD1_class':  # Skip the land cover class column
+            transition_matrix[column] = transition_matrix[column].astype(int)
 
     return transition_matrix
+
 
 def calculate_area(category, type, landuse_result, forestType_result):
     if category == "Forest Change" and type == "To Cropland":
@@ -586,3 +579,14 @@ def summarize_ghg(landuse_result, forestType_result, years):
                                             for cat, typ in zip(ghg_result['Category'], ghg_result['Type'])]
 
     return ghg_result
+
+
+def write_dataframes_to_csv(df_list, csv_file_path, space=5):
+    with open(csv_file_path, 'w', newline='') as f:
+        for i, df in enumerate(df_list):
+            # Write the DataFrame to the CSV file
+            df.to_csv(f, index=False)
+            # If this is not the last DataFrame, add the specified number of empty rows
+            if i < len(df_list) - 1:
+                f.write('\n' * space)
+
