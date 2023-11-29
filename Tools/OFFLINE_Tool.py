@@ -52,10 +52,19 @@ if __name__ == "__main__":
         treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\NLCD"
         treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4.tif")
         treecanopy_2=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year2 + "_v2021-4.tif")
-    #set paths for custom tree canopy and plantable areas
+
+    elif "CBW" in tree_canopy:
+        treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\CBW"
+        treecanopy_1 = os.path.join(treecanopy_path, "cbw_2013_treecanopy_Agg30m_int.tif")
+        treecanopy_2 = os.path.join(treecanopy_path, "cbw_2018_treecanopy_Agg30m_int.tif") \
+
+    # set paths for custom tree canopy and plantable areas
     else:
-        treecanopy_1 = ""
-        treecanopy_2 = ""
+        treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\Local"
+        filename1 = ""
+        filename2 = ""
+        treecanopy_1 = os.path.join(treecanopy_path,aoi_name,filename1)
+        treecanopy_2 = os.path.join(treecanopy_path,aoi_name,filename2)
 
     plantableAreas = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\Plantable\Howard\PA_Howard.tif"
 
