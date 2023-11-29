@@ -10,6 +10,7 @@ from funcs import tabulateAreaByStratification, calculate_category, save_results
     summarize_treecanopy, create_matrix, write_dataframes_to_csv
 
 arcpy.env.overwriteOutput = True
+# todo add option to select e / r and calculate carbon from TOF
 
 # pandas options
 pd.options.mode.chained_assignment = None  # suppressed chained assignment warnings
@@ -40,6 +41,8 @@ if __name__ == "__main__":
 
     cellsize = "30"
 
+
+
     # hardcoded AOI for development - Montgomery County, Maryland
     # aoi = os.path.join(wd, "data", "AOI", "MontgomeryMD.shp")
     aoi_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\AOI"
@@ -47,17 +50,23 @@ if __name__ == "__main__":
 
     if "NLCD" in tree_canopy:
         treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\NLCD"
+        treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4.tif")
+        treecanopy_2=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year2 + "_v2021-4.tif")
+    #set paths for custom tree canopy and plantable areas
     else:
-        treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy"
+        treecanopy_1 = ""
+        treecanopy_2 = ""
+
+    plantableAreas = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\Plantable\Howard\PA_Howard.tif"
 
     #####ALTER INPUT HERE
     inputConfig = dict(
         nlcd_1=os.path.join(dataFolder, "LandCover", ("NLCD_" + year1 + "_Land_Cover_l48_20210604.tif")),
         nlcd_2=os.path.join(dataFolder, "LandCover", ("NLCD_" + year2 + "_Land_Cover_l48_20210604.tif")),
         forestAgeRaster=os.path.join(dataFolder, "ForestType", "forest_raster_07232020.tif"),
-        treecanopy_1=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year1 + "_v2021-4.tif"),
-        treecanopy_2=os.path.join(treecanopy_path, "nlcd_tcc_conus_" + year2 + "_v2021-4.tif"),
-        plantableAreas=r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\Plantable\Howard\PA_Howard.tif",
+        treecanopy_1= treecanopy_1,
+        treecanopy_2= treecanopy_2,
+        plantableAreas= plantableAreas,
         carbon_ag_bg_us=os.path.join(dataFolder, "Carbon", "carbon_ag_bg_us.tif"),
         carbon_sd_dd_lt=os.path.join(dataFolder, "Carbon", "carbon_sd_dd_lt.tif"),
         carbon_so=os.path.join(dataFolder, "Carbon", "carbon_so.tif"),
@@ -69,7 +78,8 @@ if __name__ == "__main__":
             # os.path.join(dataFolder, "Disturbances", "disturbance_0811.tif"),
             # os.path.join(dataFolder, "Disturbances", "disturbance_1113.tif"),
             # os.path.join(dataFolder, "Disturbances", "disturbance_1316.tif"),
-            os.path.join(dataFolder, "Disturbances", "disturbance_1619.tif")
+            os.path.join(dataFolder, "Disturbances", "disturbance_1619.tif"),
+            os.path.join(dataFolder, "Disturbances", "disturbance_1921.tif")
         ]
     )
 

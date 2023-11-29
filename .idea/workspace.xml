@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="0de06005-d0df-4460-a161-d7032269544b" name="Changes" comment="Added code to output the results">
+    <list default="true" id="0de06005-d0df-4460-a161-d7032269544b" name="Changes" comment="Finalized updates for plantable areas and summary output">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Tools/Cleanup.py" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/Tools/OFFLINE_Tool.py" beforeDir="false" afterPath="$PROJECT_DIR$/Tools/OFFLINE_Tool.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/funcs.py" beforeDir="false" afterPath="$PROJECT_DIR$/funcs.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -372,7 +372,14 @@
       <option name="project" value="LOCAL" />
       <updated>1701128153817</updated>
     </task>
-    <option name="localTasksCounter" value="28" />
+    <task id="LOCAL-00028" summary="Finalized updates for plantable areas and summary output">
+      <created>1701203920284</created>
+      <option name="number" value="00028" />
+      <option name="presentableId" value="LOCAL-00028" />
+      <option name="project" value="LOCAL" />
+      <updated>1701203920285</updated>
+    </task>
+    <option name="localTasksCounter" value="29" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -431,15 +438,21 @@
     <MESSAGE value="Made substantial changes to stucture of code. Exported many functions from main to func for cleaner organization" />
     <MESSAGE value="Wrote new logic for estimating emissions from forest to nonforest transitions. Needs refinement" />
     <MESSAGE value="Added code to output the results" />
-    <option name="LAST_COMMIT_MESSAGE" value="Added code to output the results" />
+    <MESSAGE value="Finalized updates for plantable areas and summary output" />
+    <option name="LAST_COMMIT_MESSAGE" value="Finalized updates for plantable areas and summary output" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
       <breakpoints>
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
-          <url>file://$PROJECT_DIR$/Tools/OFFLINE_Tool.py</url>
-          <line>24</line>
-          <option name="timeStamp" value="9" />
+          <url>file://$PROJECT_DIR$/funcs.py</url>
+          <line>257</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/funcs.py</url>
+          <line>563</line>
+          <option name="timeStamp" value="2" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
