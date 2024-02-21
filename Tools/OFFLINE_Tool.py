@@ -35,7 +35,7 @@ if __name__ == "__main__":
     year2 = str(input("Year 2: "))
     assert year2 in years_list, f"{year2} is not in the list of valid inputs."
     aoi_name = input("Name of AOI? ")
-    tree_canopy_list = ["NLCD", "Local"]
+    tree_canopy_list = ["NLCD","CBW", "Local"]
     tree_canopy = input("Tree Canopy source? ")
     assert tree_canopy in tree_canopy_list, f"{tree_canopy} is not in the list of valid inputs."
 
@@ -60,13 +60,16 @@ if __name__ == "__main__":
 
     # set paths for custom tree canopy and plantable areas
     else:
-        treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\Local"
-        filename1 = ""
-        filename2 = ""
-        treecanopy_1 = os.path.join(treecanopy_path,aoi_name,filename1)
-        treecanopy_2 = os.path.join(treecanopy_path,aoi_name,filename2)
+        # treecanopy_path = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\Local"
+        # filename1 = "Aspen_2016.tif"
+        # filename2 = "Aspen_2020.tif"
+        # treecanopy_1 = os.path.join(treecanopy_path,aoi_name,filename1)
+        # treecanopy_2 = os.path.join(treecanopy_path,aoi_name,filename2)
 
-    plantableAreas = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\Plantable\Howard\PA_Howard.tif"
+        treecanopy_1 = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\Local\Aspen\Reclassed\Aspen_2016.tif"
+        treecanopy_2 = r"U:\eglen\Projects\LEARN Tools\Data\SourceData\Data\Rasters\TreeCanopy\Local\Aspen\Reclassed\Aspen_2020.tif"
+
+    plantableAreas = "None"
 
     #####ALTER INPUT HERE
     inputConfig = dict(
@@ -88,7 +91,7 @@ if __name__ == "__main__":
             # os.path.join(dataFolder, "Disturbances", "disturbance_1113.tif"),
             # os.path.join(dataFolder, "Disturbances", "disturbance_1316.tif"),
             os.path.join(dataFolder, "Disturbances", "disturbance_1619.tif"),
-            os.path.join(dataFolder, "Disturbances", "disturbance_1921.tif")
+            #os.path.join(dataFolder, "Disturbances", "disturbance_1921.tif")
         ]
     )
 

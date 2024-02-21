@@ -212,6 +212,14 @@ def calculate_treeCanopy(treecanopy_1, treecanopy_2, stratRast, tree_canopy, aoi
             treeCover["TreeCanopyLoss_HA"] = (
                     treeCover["TreeCanopyLoss_HA"] / 100 * 900 * 0.0001
             )  # % canopy * pixel size * sq m to ha
+        elif "CBW" in tree_canopy:
+            # ie 50% is 50/100 * 900 square meters  * 0.0001 HA = 0.045 canopy in HA
+            treeCover["TreeCanopy_HA"] = (
+                    treeCover["TreeCanopy_HA"] * 0.0001
+            )  # % canopy * pixel size * sq m to ha
+            treeCover["TreeCanopyLoss_HA"] = (
+                    treeCover["TreeCanopyLoss_HA"] * 0.0001
+            )  # % canopy * pixel size * sq m to ha
         else:
             treeCover["TreeCanopy_HA"] = (
                     treeCover["TreeCanopy_HA"] * 0.0001 * 900
@@ -442,6 +450,20 @@ def summarize_treecanopy(landuse_result):
     # Round all numerical columns
     for column in summary.select_dtypes(include=['float', 'int']):
         summary[column] = summary[column].round().astype(int)
+
+    # Create the sort order
+    sort_order = ["Grassland", "Cropland", "Settlement", "Wetland", "Other Land"]
+
+    # Create a categorical type with the specified order
+    cat_type = pd.CategoricalDtype(categories=sort_order, ordered=True)
+
+    # Convert the 'LandType' column to this categorical type
+    summary['NLCD_2_ParentClass'] = summary['NLCD_2_ParentClass'].astype(cat_type)
+
+    # Now sort the DataFrame using this custom order
+    summary = summary.sort_values(by='NLCD_2_ParentClass')
+
+    summary = summary.rename(columns={'NLCD_2_ParentClass': 'Category'})
 
     return summary
 
