@@ -4,7 +4,6 @@
     <list default="true" id="0de06005-d0df-4460-a161-d7032269544b" name="Changes" comment="Minor tweaks to user inputs">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Tools/OFFLINE_Tool.py" beforeDir="false" afterPath="$PROJECT_DIR$/Tools/OFFLINE_Tool.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/funcs.py" beforeDir="false" afterPath="$PROJECT_DIR$/funcs.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -393,7 +392,14 @@
       <option name="project" value="LOCAL" />
       <updated>1701274579626</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="Minor tweaks to user inputs">
+      <created>1708552309566</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1708552309566</updated>
+    </task>
+    <option name="localTasksCounter" value="32" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -455,5 +461,21 @@
     <MESSAGE value="Finalized updates for plantable areas and summary output" />
     <MESSAGE value="Minor tweaks to user inputs" />
     <option name="LAST_COMMIT_MESSAGE" value="Minor tweaks to user inputs" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/funcs.py</url>
+          <line>320</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/funcs.py</url>
+          <line>359</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>

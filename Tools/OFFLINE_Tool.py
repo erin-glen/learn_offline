@@ -88,8 +88,8 @@ if __name__ == "__main__":
             # os.path.join(dataFolder, "Disturbances", "disturbance_0406.tif"),
             # os.path.join(dataFolder, "Disturbances", "disturbance_0608.tif"),
             # os.path.join(dataFolder, "Disturbances", "disturbance_0811.tif"),
-            # os.path.join(dataFolder, "Disturbances", "disturbance_1113.tif"),
-            # os.path.join(dataFolder, "Disturbances", "disturbance_1316.tif"),
+            os.path.join(dataFolder, "Disturbances", "disturbance_1113.tif"),
+            os.path.join(dataFolder, "Disturbances", "disturbance_1316.tif"),
             os.path.join(dataFolder, "Disturbances", "disturbance_1619.tif"),
             #os.path.join(dataFolder, "Disturbances", "disturbance_1921.tif")
         ]
